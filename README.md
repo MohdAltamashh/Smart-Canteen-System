@@ -1,656 +1,629 @@
-<h1 align="center">Smart Campus Complaint System</h1>
-
 <div align="center">
 
-![MERN Stack](https://img.shields.io/badge/Stack-MERN-green)
-![Node.js](https://img.shields.io/badge/Node.js-18+-green)
-![React](https://img.shields.io/badge/React-17.0-blue)
-![MongoDB](https://img.shields.io/badge/MongoDB-5.0+-green)
-![License](https://img.shields.io/badge/License-MIT-blue)
+# 🍽️ Smart Canteen
+## Pre-Order & Token Management System
 
-**A comprehensive complaint management platform for educational institutions with role-based access control, real-time tracking, and automated workflows.**
+### A Smart Digital Solution for Campus Canteen Management
 
-[Features](#-features) • [Tech Stack](#-tech-stack) • [Installation](#-installation) • [Usage](#-usage) • [API Documentation](#-api-documentation) • [Contributing](#-contributing)
+<p>
+  <img src="https://img.shields.io/badge/React-17-blue?logo=react" />
+  <img src="https://img.shields.io/badge/Node.js-Express-green?logo=node.js" />
+  <img src="https://img.shields.io/badge/MongoDB-Database-green?logo=mongodb" />
+  <img src="https://img.shields.io/badge/Razorpay-Test%20Mode-blue" />
+  <img src="https://img.shields.io/badge/Socket.IO-Real--Time-black?logo=socket.io" />
+  <img src="https://img.shields.io/badge/License-Academic-orange" />
+</p>
+
+<p>
+A full-stack MERN application that enables students to pre-order food,
+make online payments, receive digital tokens, and track orders in real time.
+</p>
 
 </div>
 
 ---
 
-##  Screenshots
+## 📌 About the Project
 
-<div align="center">
-  <img 
-    src="https://github.com/user-attachments/assets/48127d29-d387-4ce2-85cb-0a2356d05b18"
-    alt="Smart Campus Complaint System Landing Page"
-    width="900"
-  />
-  <p><i>Smart Campus Complaint System – Landing Page</i></p>
-</div>
+**Smart Canteen Pre-Order & Token Management System** is a full-stack web application developed to modernize the traditional campus canteen experience.
 
+The system allows students to:
 
----
+- Browse the digital food menu
+- Search and filter food items
+- Add items to a shopping cart
+- Place pre-orders
+- Make online payments
+- Receive an automatic token number
+- Track order progress
+- Monitor their queue position
+- Receive real-time and email notifications
 
-## 📋 Table of Contents
+The system also provides dedicated interfaces for **Staff** and **Admin** to manage orders, tokens, food items, and staff accounts.
 
-- [Overview](#-overview)
-- [Screenshots](#-screenshots)
-- [Features](#-features)
-- [Tech Stack](#-tech-stack)
-- [Architecture](#-architecture)
-- [Prerequisites](#-prerequisites)
-- [Installation](#-installation)
-- [Configuration](#-configuration)
-- [Usage](#-usage)
-- [Project Structure](#-project-structure)
-- [API Documentation](#-api-documentation)
-- [Deployment](#-deployment)
-- [Troubleshooting](#-troubleshooting)
-- [Contributing](#-contributing)
-- [License](#-license)
+### 🎯 Main Goal
+
+> **Order Smart • Skip the Queue • Save Time**
 
 ---
 
-## 🎯 Overview
+## ✨ Core Features
 
-Smart Campus Complaint System is a full-stack web application designed to streamline complaint management in educational institutions. The platform enables students to submit complaints with multimedia attachments, allows staff members to track and resolve assigned issues, and provides administrators with comprehensive oversight through analytics and management tools.
+### 🎓 Student Portal
 
-The system implements a three-tier role-based access control (Student, Staff, Admin) with JWT authentication, real-time status updates, automated email notifications, and a feedback mechanism for continuous improvement.
-
----
-
-## ✨ Features
-
-### 🔐 Authentication & Authorization
-- **Role-Based Access Control** - Separate authentication flows for Students, Staff, and Administrators
-- **JWT Token Management** - Secure session handling with JSON Web Tokens
-- **Password Encryption** - bcryptjs hashing for secure credential storage
-- **Protected Routes** - Middleware-based route protection based on user roles
-
-### 📝 Complaint Management
-- **Complaint Submission** - Create complaints with title, description, category, urgency level, and image attachments
-- **Status Tracking** - Three-tier status workflow: `pending` → `in-progress` → `resolved`
-- **Image Upload** - Multer-based file handling for complaint evidence
-- **Urgency Levels** - Configurable due dates (1, 2, or 3+ days)
-
-### 👥 Staff Operations
-- **Assigned Complaints Dashboard** - View and manage complaints assigned to staff members
-- **Progress Updates** - Add photos and remarks during complaint resolution
-- **Status Updates** - Update complaint status with detailed notes
-
-### 👨‍💼 Admin Dashboard
-- **Complaint Overview** - View all complaints with filtering and search capabilities
-- **Staff Assignment** - Assign complaints to available staff members
-- **Statistics & Analytics** - Real-time metrics on complaints, users, and resolution times
-- **User Management** - Access to staff and student user lists
-
-### 💬 Feedback System
-- **Rating System** - 5-star rating mechanism for resolved complaints
-- **Comments** - Textual feedback submission
-- **Performance Tracking** - Monitor staff and system performance
-
-### 📧 Notifications
-- **Email Integration** - Automated email notifications via Nodemailer
-- **Resolution Alerts** - Notify users when complaints are resolved
+| Feature | Description |
+|---|---|
+| 🔐 Authentication | Secure login and registration |
+| 📧 Email OTP | OTP verification during registration |
+| 🍔 Digital Menu | Browse available food items |
+| 🔎 Search & Filter | Quickly find food items |
+| 🛒 Shopping Cart | Add, remove and update items |
+| 💳 Online Payment | Razorpay payment integration |
+| 🎟️ Token Generation | Automatic token after successful payment |
+| 📋 My Orders | View complete order history |
+| 📍 Order Tracking | Track current order status |
+| ⏱️ Queue Tracking | View queue position and estimated waiting time |
+| 🚫 Order Cancellation | Cancel eligible pending orders |
+| 🔔 Live Notifications | Receive real-time status updates |
+| 📧 Email Notifications | Receive order and status emails |
 
 ---
 
-## 🛠 Tech Stack
+### 👨‍🍳 Staff Portal
 
-### Frontend
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| **React** | 17.0.2 | UI framework |
-| **React Router DOM** | 5.3.4 | Client-side routing |
-| **Axios** | 0.21.4 | HTTP client for API calls |
-| **Bootstrap** | 5.3.7 | CSS framework for responsive design |
-| **JWT Decode** | 4.0.0 | Token decoding for authentication |
+Staff members can manage the daily canteen order workflow.
 
-### Backend
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| **Node.js** | 18+ | Runtime environment |
-| **Express.js** | 4.21.2 | Web application framework |
-| **Mongoose** | 5.13.23 | MongoDB object modeling |
-| **jsonwebtoken** | 8.5.1 | JWT token generation and verification |
-| **bcryptjs** | 2.4.3 | Password hashing |
+- 🔐 Staff Login
+- 📋 View All Orders
+- 🔎 Search Orders
+- 🏷️ Filter Orders by Status
+- 🔄 Update Order Status
+- 🎟️ Manage Token Queue
+- 📺 Live Token Display
+- 🟡 View Pending Orders
+- 🔵 View Preparing Orders
+- 🟢 View Ready Orders
+- 📊 Monitor Active Orders
 
-### Database
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| **MongoDB** | 5.0+ | NoSQL database for data persistence |
+### Order Lifecycle
 
-### Tools & Utilities
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| **Multer** | 1.4.2 | File upload middleware |
-| **Nodemailer** | 7.0.4 | Email service integration |
-| **Socket.io** | 4.0.0 | Real-time bidirectional communication |
-| **dotenv** | 10.0.0 | Environment variable management |
-| **CORS** | 2.8.5 | Cross-origin resource sharing |
+```text
+Pending
+   ↓
+Preparing
+   ↓
+Ready
+   ↓
+Completed
+```
 
 ---
 
-## 🏗 Architecture
+### 👨‍💼 Admin Portal
 
-The application follows a **three-tier architecture** pattern:
+The Admin has complete control over the canteen management system.
 
-```
-┌─────────────────┐
-│   React Client  │  (Port 3000)
-│   (Frontend)    │
-└────────┬────────┘
-         │ HTTP/REST API
-         │ (Axios)
-┌────────▼────────┐
-│  Express Server │  (Port 5000)
-│   (Backend)     │
-└────────┬────────┘
-         │ Mongoose ODM
-┌────────▼────────┐
-│    MongoDB      │
-│   (Database)    │
-└─────────────────┘
-```
+#### Food Management
 
-**Data Flow:**
-1. **Frontend (React)** - User interactions trigger API calls via Axios
-2. **Backend (Express)** - RESTful API endpoints handle business logic and authentication
-3. **Database (MongoDB)** - Data persistence with Mongoose schemas
-4. **Authentication** - JWT tokens stored in localStorage, validated via middleware
-5. **File Storage** - Multer processes uploads to `server/uploads/` directory
-6. **Email Service** - Nodemailer sends notifications asynchronously
+- ➕ Add Food Items
+- ✏️ Edit Food Items
+- 🗑️ Delete Food Items
+- 🖼️ Upload Food Images
+- 🟢 Enable/Disable Availability
+- 💰 Manage Food Prices
+- 🏷️ Manage Food Categories
+
+#### Order Management
+
+- 📋 View All Orders
+- 🔎 Search Orders
+- 🔄 Update Order Status
+- 📊 Monitor Order Statistics
+- 💰 View Sales Information
+
+#### Staff Management
+
+- 👨‍🍳 Create Staff Accounts
+- 👥 View Staff Members
+- 🏫 Manage Staff Department Information
 
 ---
 
-## 📦 Prerequisites
+# 💳 Online Payment System
 
-Before installation, ensure you have the following installed:
+The application integrates **Razorpay Test Mode** for online payments.
 
-- **Node.js** (v18 or higher) - [Download](https://nodejs.org/)
-- **npm** (v9 or higher) - Comes with Node.js
-- **MongoDB** (v5.0 or higher) - [Download](https://www.mongodb.com/try/download/community) or use [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
-- **Git** - [Download](https://git-scm.com/)
+### Payment Workflow
+
+```text
+Student
+   ↓
+Add Food to Cart
+   ↓
+Checkout
+   ↓
+Razorpay Payment
+   ↓
+Backend Payment Verification
+   ↓
+Order Creation
+   ↓
+Token Generation
+   ↓
+Order Confirmation
+```
+
+The backend verifies the payment signature before creating the final order.
+
+> **Note:** Razorpay is currently configured for Test Mode during development.
 
 ---
 
-## 🚀 Installation
+# 🎟️ Smart Token Management
 
-### 1. Clone the Repository
+After successful payment, the system automatically generates a token number.
 
-```bash
-git clone https://github.com/tharani-2006/smart-campus-complaint-system.git
-cd smart-campus-complaint-system
-```
+The token system helps reduce physical queues and allows students to monitor their order progress.
 
-### 2. Install Dependencies
+### Token Information
 
-Install server dependencies:
-
-```bash
-cd server
-npm install
-```
-
-Install client dependencies:
-
-```bash
-cd ../client
-npm install
-```
-
-### 3. Configure Environment Variables
-
-Create a `.env` file in the `server` directory:
-
-```bash
-cd ../server
-touch .env
-```
-
-Add the following environment variables (see [Configuration](#-configuration) for details):
-
-```env
-MONGO_URI=your_mongodb_connection_string
-JWT_SECRET=your_jwt_secret_key
-PORT=5000
-EMAIL_USER=your_email@gmail.com
-EMAIL_PASS=your_app_password
-ADMIN_EMAIL=admin@campus.edu
-ADMIN_PASSWORD=secure_admin_password
-```
-
-### 4. Start MongoDB
-
-**Local MongoDB:**
-```bash
-# Windows
-net start MongoDB
-
-# macOS/Linux
-sudo systemctl start mongod
-# or
-mongod
-```
-
-**MongoDB Atlas:**
-- Use your Atlas connection string in `MONGO_URI`
-
-### 5. Run the Application
-
-**Start the backend server:**
-```bash
-cd server
-npm start
-# Server runs on http://localhost:5000
-```
-
-**Start the frontend client (in a new terminal):**
-```bash
-cd client
-npm start
-# Client runs on http://localhost:3000
-```
-
-The application will automatically open in your default browser at `http://localhost:3000`.
+- 🎟️ Your Token Number
+- 👥 People Ahead
+- 📍 Queue Position
+- ⏱️ Estimated Waiting Time
+- 🔴 Currently Serving Token
+- 🟢 Ready Tokens
+- 📺 Live Token Display
 
 ---
 
-## ⚙️ Configuration
+# 📺 Live Token Display
 
-### Environment Variables
+The Staff Token Display provides a real-time view of the canteen queue.
 
-Create a `.env` file in the `server` directory with the following variables:
+### Display Includes
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `MONGO_URI` | MongoDB connection string | `mongodb://localhost:27017/campus-complaints` or Atlas URI |
-| `JWT_SECRET` | Secret key for JWT token signing | `your_super_secret_jwt_key_here` |
-| `PORT` | Server port number | `5000` |
-| `EMAIL_USER` | Email address for sending notifications | `noreply@campus.edu` |
-| `EMAIL_PASS` | Email service app password | `your_app_specific_password` |
-| `ADMIN_EMAIL` | Default admin email for login | `admin@campus.edu` |
-| `ADMIN_PASSWORD` | Default admin password | `SecurePassword123!` |
+**NOW SERVING**
 
-### MongoDB Connection
+Current preparing token
 
-**Local MongoDB:**
-```env
-MONGO_URI=mongodb://localhost:27017/smart-campus-complaints
-```
+**READY FOR PICKUP**
 
-**MongoDB Atlas:**
-```env
-MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/smart-campus-complaints?retryWrites=true&w=majority
-```
+Orders that are ready
 
-### Email Configuration (Gmail Example)
+**NEXT TOKENS**
 
-1. Enable 2-Step Verification on your Google Account
-2. Generate an App Password: [Google App Passwords](https://myaccount.google.com/apppasswords)
-3. Use the generated password in `EMAIL_PASS`
+Upcoming pending tokens
+
+The display automatically refreshes to reflect the latest order status.
 
 ---
 
-## 💻 Usage
+# 🔔 Real-Time Notification System
 
-### User Roles
+The project uses **Socket.IO** to provide real-time communication between the Staff and Student interfaces.
 
-#### 👨‍🎓 Student
-- Register/Login at `/register/student` or `/login/student`
-- Submit new complaints at `/complaints/new`
-- View personal complaints at `/my-complaints`
-- Track complaint status and updates
-- Submit feedback on resolved complaints
+When staff updates an order status, the student receives an instant notification without manually refreshing the page.
 
-#### 👨‍🏫 Staff
-- Register/Login at `/register/staff` or `/login/staff`
-- Access dashboard at `/staff/dashboard`
-- View assigned complaints
-- Update complaint status with photos and remarks
-- Track resolution progress
+### Real-Time Events
 
-#### 👨‍💼 Administrator
-- Login at `/login/admin` (credentials from `.env`)
-- Access admin dashboard at `/admin/dashboard`
-- View all complaints across the system
-- Assign complaints to staff members
-- Update complaint statuses
-- View statistics and analytics
-- Manage user accounts
+```text
+Staff Updates Order
+        ↓
+Socket.IO Server
+        ↓
+Student-Specific Socket Room
+        ↓
+Instant Student Notification
+```
 
-### API Endpoints
+Supported statuses:
 
-See [API Documentation](#-api-documentation) for complete endpoint details.
+- Pending
+- Preparing
+- Ready
+- Completed
+- Cancelled
 
 ---
 
-## 📁 Project Structure
+# 📧 Email Notification System
 
+The application uses **Nodemailer** for automated email communication.
+
+Students receive emails for:
+
+- 📩 Order Confirmation
+- 🎟️ Token Number
+- 🍔 Ordered Items
+- 💰 Total Amount
+- 🔄 Order Status Changes
+
+---
+
+# 🔐 Security
+
+The application implements multiple security mechanisms.
+
+- 🔑 JWT Authentication
+- 🔒 Password Hashing using bcryptjs
+- 👥 Role-Based Access Control
+- 🛡️ Protected API Routes
+- 👨‍💼 Admin Authorization
+- 💳 Razorpay Signature Verification
+- 🔐 Environment Variables
+- 🚫 Order Ownership Validation
+- 📁 Secure File Upload Validation
+
+> ⚠️ **Never upload `.env` files, passwords, API keys, database credentials or payment secrets to GitHub.**
+
+---
+
+# 🏗️ System Architecture
+
+```text
+                         ┌───────────────────┐
+                         │     Student       │
+                         │  React Frontend   │
+                         └─────────┬─────────┘
+                                   │
+                              REST API
+                                   │
+                                   ▼
+                         ┌───────────────────┐
+                         │   Node.js +       │
+                         │     Express       │
+                         └───────┬───────────┘
+                                 │
+               ┌─────────────────┼─────────────────┐
+               │                 │                 │
+               ▼                 ▼                 ▼
+        ┌────────────┐    ┌────────────┐    ┌────────────┐
+        │  MongoDB   │    │ Razorpay   │    │ Socket.IO  │
+        │  Database  │    │  Payment   │    │ Real-Time  │
+        └────────────┘    └────────────┘    └────────────┘
+                                 │
+                                 ▼
+                         ┌─────────────────┐
+                         │    Nodemailer   │
+                         │ Email Service   │
+                         └─────────────────┘
 ```
-smart-campus-complaint-system/
+
+---
+
+# 🛠️ Technology Stack
+
+## Frontend
+
+- **React.js**
+- **React Router**
+- **Axios**
+- **Bootstrap**
+- **JavaScript**
+- **CSS**
+
+## Backend
+
+- **Node.js**
+- **Express.js**
+- **JWT**
+- **bcryptjs**
+- **Multer**
+- **Nodemailer**
+- **Socket.IO**
+
+## Database
+
+- **MongoDB**
+- **Mongoose**
+
+## Payment
+
+- **Razorpay**
+
+---
+
+# 📂 Project Structure
+
+<details>
+<summary><b>📁 Click to view project structure</b></summary>
+
+```text
+Smart-Canteen-System/
 │
-├── client/                          # React frontend application
+├── client/
 │   ├── public/
-│   │   └── index.html              # HTML template
 │   ├── src/
 │   │   ├── api/
-│   │   │   └── auth.js             # API service functions
-│   │   ├── assets/
-│   │   │   └── logo.jpeg           # Application logo
 │   │   ├── components/
-│   │   │   ├── Auth/
-│   │   │   │   ├── Login.jsx       # Login component
-│   │   │   │   └── Register.jsx   # Registration component
-│   │   │   ├── Complaint/
-│   │   │   │   └── ComplaintForm.jsx  # Complaint submission form
-│   │   │   └── Navbar.jsx          # Navigation bar
 │   │   ├── pages/
-│   │   │   ├── AdminDashboard.jsx  # Admin dashboard page
-│   │   │   ├── CenterPage.jsx      # Center page component
-│   │   │   ├── ComplaintDetail.jsx # Complaint details view
-│   │   │   ├── Home.jsx            # Home page
-│   │   │   ├── MyComplaints.jsx    # User's complaints list
-│   │   │   └── StaffDashboard.jsx  # Staff dashboard page
-│   │   ├── App.jsx                 # Main application component
-│   │   ├── index.jsx               # Application entry point
-│   │   └── index.css               # Global styles
-│   ├── package.json                # Frontend dependencies
-│   └── README.md                   # Client-specific README
+│   │   ├── App.jsx
+│   │   ├── index.css
+│   │   └── index.js
+│   └── package.json
 │
-├── server/                          # Express backend application
-│   ├── config/
-│   │   └── db.js                   # MongoDB connection configuration
+├── server/
 │   ├── controllers/
-│   │   ├── authController.js       # Authentication logic
-│   │   ├── complaintController.js  # Complaint business logic
-│   │   └── feedbackController.js   # Feedback handling
 │   ├── middleware/
-│   │   ├── authMiddleware.js       # JWT authentication middleware
-│   │   ├── isAdmin.js              # Admin role verification
-│   │   ├── isStaff.js              # Staff role verification
-│   │   └── upload.js               # Multer file upload configuration
 │   ├── models/
-│   │   ├── Complaint.js            # Complaint data model
-│   │   ├── Feedback.js             # Feedback data model
-│   │   └── User.js                 # User data model
 │   ├── routes/
-│   │   ├── auth.js                 # Authentication routes
-│   │   ├── complaint.js            # Complaint routes
-│   │   ├── feedback.js             # Feedback routes
-│   │   └── stats.js                # Statistics routes
-│   ├── uploads/                    # Uploaded files directory
-│   ├── utils/
-│   │   ├── emailTest.js            # Email testing utility
-│   │   └── mailer.js               # Email service configuration
-│   ├── app.js                      # Express application entry point
-│   ├── package.json                # Backend dependencies
-│   └── .env                        # Environment variables (not in repo)
+│   ├── services/
+│   ├── uploads/
+│   ├── app.js
+│   ├── canteendb.js
+│   └── package.json
 │
-├── Docs/                            # Documentation
-│   ├── ClientSide.md               # Client-side documentation
-│   └── ServerSide.md               # Server-side documentation
-│
-├── .gitignore                       # Git ignore rules
-├── package.json                     # Root package.json
-└── README.md                        # This file
+├── .gitignore
+└── README.md
+```
+
+</details>
+
+---
+
+# 🔄 Application Workflow
+
+<details>
+<summary><b>🚀 Click to view complete workflow</b></summary>
+
+```text
+Student Registration
+        ↓
+Email OTP Verification
+        ↓
+Student Login
+        ↓
+Browse Food Menu
+        ↓
+Add Food to Cart
+        ↓
+Checkout
+        ↓
+Razorpay Payment
+        ↓
+Payment Verification
+        ↓
+Order Creation
+        ↓
+Token Generation
+        ↓
+Staff Receives Order
+        ↓
+Preparing
+        ↓
+Ready
+        ↓
+Student Pickup
+        ↓
+Completed
+```
+
+</details>
+
+---
+
+# 🧩 Main System Modules
+
+| Module | Function |
+|---|---|
+| 🔐 Authentication | Registration, login and JWT authentication |
+| 📧 OTP Verification | Email-based registration verification |
+| 🍔 Food Management | Food CRUD and availability |
+| 🛒 Cart | Manage selected food items |
+| 💳 Payment | Razorpay payment processing |
+| 📋 Order Management | Create and manage orders |
+| 🎟️ Token Management | Automatic token generation |
+| 👥 Queue Management | Track active order queue |
+| 📺 Token Display | Live canteen token display |
+| 🔔 Notifications | Real-time Socket.IO updates |
+| 📧 Email Service | Automated email notifications |
+| 👨‍🍳 Staff Management | Admin-controlled staff accounts |
+| 📊 Admin Dashboard | Centralized administration |
+
+---
+
+# ⚙️ Installation
+
+## 1️⃣ Clone Repository
+
+```bash
+git clone https://github.com/MohdAltamashh/Smart-Canteen-System.git
+```
+
+```bash
+cd Smart-Canteen-System
 ```
 
 ---
 
-## 📚 API Documentation
-
-### Authentication Endpoints
-
-#### Register User
-```http
-POST /api/auth/register
-Content-Type: application/json
-
-{
-  "name": "John Doe",
-  "email": "john@student.edu",
-  "password": "password123",
-  "department": "Computer Science",
-  "role": "student"
-}
-```
-
-#### Login
-```http
-POST /api/auth/login
-Content-Type: application/json
-
-{
-  "email": "john@student.edu",
-  "password": "password123",
-  "role": "student"
-}
-```
-
-#### Get User Profile
-```http
-GET /api/auth/profile
-Authorization: Bearer <token>
-```
-
-### Complaint Endpoints
-
-#### Create Complaint
-```http
-POST /api/complaints
-Authorization: Bearer <token>
-Content-Type: multipart/form-data
-
-{
-  "title": "Broken Wi-Fi in Library",
-  "description": "Wi-Fi connection is unstable",
-  "category": "Infrastructure",
-  "dueInDays": 2,
-  "image": <file>
-}
-```
-
-#### Get User's Complaints
-```http
-GET /api/complaints/my
-Authorization: Bearer <token>
-```
-
-#### Get All Complaints (Admin)
-```http
-GET /api/complaints
-Authorization: Bearer <token>
-```
-
-#### Get Complaint by ID
-```http
-GET /api/complaints/:id
-Authorization: Bearer <token>
-```
-
-#### Assign Complaint to Staff
-```http
-PUT /api/complaints/:id/assign
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "staffId": "staff_user_id"
-}
-```
-
-#### Update Complaint Status
-```http
-PUT /api/complaints/:id/status
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "status": "in-progress"
-}
-```
-
-#### Staff Update Complaint
-```http
-POST /api/complaints/:id/staff-update
-Authorization: Bearer <token>
-Content-Type: multipart/form-data
-
-{
-  "remarks": "Issue resolved",
-  "photo": <file>
-}
-```
-
-### Statistics Endpoints
-
-#### Get Complaint Statistics
-```http
-GET /api/stats/complaints
-```
-
-#### Get User Statistics
-```http
-GET /api/stats/users
-```
-
-### Feedback Endpoints
-
-#### Submit Feedback
-```http
-POST /api/feedback
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "complaintId": "complaint_id",
-  "rating": 5,
-  "comment": "Excellent service!"
-}
-```
-
----
-
-## 🚢 Deployment
-
-### Backend Deployment (Render/Heroku)
-
-1. **Set Environment Variables** in your hosting platform
-2. **Update MongoDB URI** to production database
-3. **Configure CORS** to allow frontend domain
-4. **Deploy:**
+## 2️⃣ Install Backend Dependencies
 
 ```bash
 cd server
-git push heroku main
-# or
-# Deploy to Render via GitHub integration
+npm install
 ```
 
-### Frontend Deployment (Vercel/Netlify)
+---
 
-1. **Update API Base URL** in `client/src/api/auth.js`
-2. **Build the application:**
+## 3️⃣ Install Frontend Dependencies
+
+Open another terminal:
 
 ```bash
 cd client
-npm run build
+npm install
 ```
-
-3. **Deploy the `build` folder** to your hosting platform
-
-### Environment Variables for Production
-
-Ensure all environment variables are set in your hosting platform's dashboard.
 
 ---
 
-## 🔧 Troubleshooting
+## 4️⃣ Configure Environment Variables
 
-### Common Issues
+Create:
 
-#### MongoDB Connection Error
+```text
+server/.env
 ```
-Error: MongoDB connection failed
-```
-**Solution:** Verify `MONGO_URI` in `.env` file and ensure MongoDB is running.
 
-#### Port Already in Use
+Configure the required environment variables for:
+
+- MongoDB
+- JWT
+- Razorpay
+- Email Service
+- Admin Authentication
+
+For the React frontend:
+
+```text
+client/.env
 ```
-Error: Port 5000 is already in use
+
+Example:
+
+```env
+REACT_APP_API_URL=http://localhost:5000/api
 ```
-**Solution:** Change `PORT` in `.env` or kill the process using the port:
+
+> Never put private API keys or secrets inside the React frontend environment.
+
+---
+
+## 5️⃣ Start Backend
+
 ```bash
-# Windows
-netstat -ano | findstr :5000
-taskkill /PID <PID> /F
-
-# macOS/Linux
-lsof -ti:5000 | xargs kill
+cd server
+node app.js
 ```
 
-#### JWT Token Expired
-```
-Error: Token expired
-```
-**Solution:** Log out and log in again to generate a new token.
+Backend runs on:
 
-#### File Upload Fails
+```text
+http://localhost:5000
 ```
-Error: Multer error
-```
-**Solution:** Ensure `server/uploads/` directory exists and has write permissions.
-
-#### CORS Error
-```
-Error: CORS policy blocked
-```
-**Solution:** Verify CORS is enabled in `server/app.js` and frontend URL is whitelisted.
 
 ---
 
-## 🤝 Contributing
+## 6️⃣ Start Frontend
 
-Contributions are welcome! Please follow these steps:
+Open another terminal:
 
-1. **Fork the repository**
-2. **Create a feature branch:**
-   ```bash
-   git checkout -b feature/amazing-feature
-   ```
-3. **Commit your changes:**
-   ```bash
-   git commit -m 'Add some amazing feature'
-   ```
-4. **Push to the branch:**
-   ```bash
-   git push origin feature/amazing-feature
-   ```
-5. **Open a Pull Request**
+```bash
+cd client
+npm start
+```
 
-### Development Guidelines
-
-- Follow existing code style and conventions
-- Write clear commit messages
-- Add comments for complex logic
-- Test your changes thoroughly
-- Update documentation as needed
+The React application will open in the browser.
 
 ---
 
-## 🙏 Acknowledgments
+# 🧪 Testing
 
-- MongoDB for the database solution
-- React team for the amazing framework
-- Express.js community for the robust backend framework
-- All contributors and users of this project
+The system has been tested for the following workflows:
+
+- ✅ Student Registration
+- ✅ Email OTP Verification
+- ✅ Student Login
+- ✅ Staff Login
+- ✅ Admin Login
+- ✅ Food Menu
+- ✅ Shopping Cart
+- ✅ Razorpay Test Payment
+- ✅ Order Creation
+- ✅ Token Generation
+- ✅ Order History
+- ✅ Order Cancellation
+- ✅ Staff Order Management
+- ✅ Order Status Updates
+- ✅ Live Token Queue
+- ✅ Real-Time Socket Notifications
+- ✅ Email Notifications
+- ✅ Food Image Upload
+- ✅ Staff Management
+
+---
+
+# 🎯 Project Objectives
+
+The major objectives of the Smart Canteen System are:
+
+1. Reduce physical queues at the campus canteen.
+2. Allow students to pre-order food.
+3. Provide digital payment facilities.
+4. Automate token generation.
+5. Provide real-time order tracking.
+6. Improve staff order management.
+7. Reduce manual order processing.
+8. Provide centralized admin control.
+9. Improve communication through notifications.
+10. Create a faster and more organized canteen experience.
+
+---
+
+# 🚀 Future Enhancements
+
+The following features can be added in future versions:
+
+- 📱 Dedicated Android/iOS mobile application
+- 💰 Production payment gateway
+- 🧾 Digital invoice generation
+- ⭐ Food rating and review system
+- 📊 Advanced sales analytics
+- 📦 Inventory management
+- 🤖 AI-based food recommendations
+- 📈 Food demand prediction
+- 🔔 Push notifications
+- 🎫 QR-based order verification
+- 🏷️ Coupon and discount system
+
+---
+
+# 👨‍💻 Developer
+
+<div align="center">
+
+## Mohd Altamash
+
+### MCA Student | Full-Stack Developer
+
+**Smart Canteen Pre-Order & Token Management System**
+
+Interested in:
+
+**MERN Stack • Web Development • Backend Development • Database Management**
+
+<br>
+
+<a href="https://github.com/MohdAltamashh">
+  <img src="https://img.shields.io/badge/GitHub-MohdAltamashh-black?logo=github" />
+</a>
+
+</div>
+
+---
+
+# 🎓 Academic Project
+
+**Project Type:** Minor Project
+
+**Project:** Smart Canteen Pre-Order & Token Management System
+
+**Technology:** MERN Stack
+
+**Purpose:** Academic / Educational Project
 
 ---
 
 <div align="center">
 
-**Made with ❤️ by tharani-2006**
+## 🍽️ Smart Canteen
 
-⭐ Star this repo if you find it helpful!
+### Order Smart • Skip the Queue • Save Time
+
+---
+
+**Developed by Mohd Altamash**
+
+⭐ If you find this project useful, consider starring the repository.
 
 </div>
