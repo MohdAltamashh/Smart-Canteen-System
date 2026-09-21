@@ -7,7 +7,9 @@ import axios from "axios";
 // =====================================================
 
 const API_URL =
-  "http://localhost:5000/api/auth/";
+  process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+
+const AUTH_URL = `${API_URL}/auth`;
 
 // =====================================================
 // REGISTER
@@ -15,7 +17,7 @@ const API_URL =
 
 const register = async (userData) => {
   const response = await axios.post(
-    `${API_URL}register`,
+    `${AUTH_URL}/register`,
     userData
   );
 
@@ -28,7 +30,7 @@ const register = async (userData) => {
 
 const login = async (userData) => {
   const response = await axios.post(
-    `${API_URL}login`,
+    `${AUTH_URL}/login`,
     userData
   );
 

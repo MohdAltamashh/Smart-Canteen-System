@@ -2,6 +2,10 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 
+const API_URL =
+  process.env.REACT_APP_API_URL ||
+  "http://localhost:5000/api";
+
 const Home = ({ userRole }) => {
   const [foodItems, setFoodItems] = useState([]);
   const [search, setSearch] = useState("");
@@ -45,7 +49,7 @@ const Home = ({ userRole }) => {
     const fetchFoodItems = async () => {
       try {
         const response = await axios.get(
-          "http://localhost:5000/api/food"
+          `${API_URL}/food`
         );
 
         const availableItems = response.data.filter(
@@ -141,7 +145,6 @@ const Home = ({ userRole }) => {
         background: "#f5f8fc",
       }}
     >
-
       {/* ================================================= */}
       {/* HERO SECTION */}
       {/* ================================================= */}
@@ -157,13 +160,11 @@ const Home = ({ userRole }) => {
         }}
       >
         <div className="container py-5">
-
           <div className="row align-items-center">
 
             {/* LEFT */}
 
             <div className="col-lg-7">
-
               <div className="mb-3">
                 <span className="badge bg-warning text-dark px-3 py-2">
                   ⚡ SMART CANTEEN
@@ -256,13 +257,11 @@ const Home = ({ userRole }) => {
                 )}
 
               </div>
-
             </div>
 
             {/* RIGHT */}
 
             <div className="col-lg-5 text-center mt-5 mt-lg-0">
-
               <div
                 style={{
                   background: "rgba(255,255,255,0.10)",
@@ -274,7 +273,6 @@ const Home = ({ userRole }) => {
                     "0 20px 50px rgba(0,0,0,0.15)",
                 }}
               >
-
                 <div
                   style={{
                     fontSize: "120px",
@@ -294,13 +292,10 @@ const Home = ({ userRole }) => {
                 >
                   Order smart. Wait less.
                 </p>
-
               </div>
-
             </div>
 
           </div>
-
         </div>
       </section>
 
@@ -316,7 +311,6 @@ const Home = ({ userRole }) => {
           zIndex: 2,
         }}
       >
-
         <div className="row g-3">
 
           <div className="col-6 col-lg-3">
@@ -368,7 +362,6 @@ const Home = ({ userRole }) => {
           </div>
 
         </div>
-
       </section>
 
       {/* ================================================= */}
@@ -378,7 +371,6 @@ const Home = ({ userRole }) => {
       <section className="container py-5">
 
         <div className="text-center mb-5">
-
           <span className="badge bg-primary px-3 py-2">
             WHY SMART CANTEEN?
           </span>
@@ -391,7 +383,6 @@ const Home = ({ userRole }) => {
             Everything you need for a faster and easier
             canteen experience.
           </p>
-
         </div>
 
         <div className="row g-4">
@@ -569,7 +560,11 @@ const Home = ({ userRole }) => {
                           }}
                         />
                       ) : (
-                        <span style={{ fontSize: "75px" }}>
+                        <span
+                          style={{
+                            fontSize: "75px",
+                          }}
+                        >
                           🍽️
                         </span>
                       )}
@@ -605,6 +600,7 @@ const Home = ({ userRole }) => {
                       <div className="d-flex justify-content-between align-items-center mt-3">
 
                         <div>
+
                           <small className="text-muted d-block">
                             Price
                           </small>
@@ -612,6 +608,7 @@ const Home = ({ userRole }) => {
                           <span className="text-success fw-bold fs-5">
                             ₹{item.price}
                           </span>
+
                         </div>
 
                         <button
@@ -639,7 +636,6 @@ const Home = ({ userRole }) => {
           {/* NO FOOD */}
 
           {filteredItems.length === 0 && (
-
             <div className="text-center py-5">
 
               <div style={{ fontSize: "60px" }}>
@@ -655,13 +651,11 @@ const Home = ({ userRole }) => {
               </p>
 
             </div>
-
           )}
 
           {/* FULL MENU */}
 
           {foodItems.length > 6 && (
-
             <div className="text-center mt-5">
 
               <Link
@@ -672,7 +666,6 @@ const Home = ({ userRole }) => {
               </Link>
 
             </div>
-
           )}
 
         </section>
@@ -683,7 +676,6 @@ const Home = ({ userRole }) => {
       {/* ================================================= */}
 
       {isLoggedIn && userRole === "staff" && (
-
         <section className="container py-5">
 
           <div className="card text-center p-5">
@@ -713,7 +705,6 @@ const Home = ({ userRole }) => {
           </div>
 
         </section>
-
       )}
 
       {/* ================================================= */}
@@ -721,7 +712,6 @@ const Home = ({ userRole }) => {
       {/* ================================================= */}
 
       {isLoggedIn && userRole === "admin" && (
-
         <section className="container py-5">
 
           <div className="card text-center p-5">
@@ -751,7 +741,6 @@ const Home = ({ userRole }) => {
           </div>
 
         </section>
-
       )}
 
       {/* ================================================= */}
@@ -1015,6 +1004,7 @@ const Home = ({ userRole }) => {
                         background: "#f7f9fc",
                       }}
                     >
+
                       <div style={{ fontSize: "24px" }}>
                         📧
                       </div>
@@ -1026,6 +1016,7 @@ const Home = ({ userRole }) => {
                       <div className="fw-semibold">
                         altamasha607@gmail.com
                       </div>
+
                     </div>
 
                   </div>
@@ -1038,6 +1029,7 @@ const Home = ({ userRole }) => {
                         background: "#f7f9fc",
                       }}
                     >
+
                       <div style={{ fontSize: "24px" }}>
                         📱
                       </div>
@@ -1049,6 +1041,7 @@ const Home = ({ userRole }) => {
                       <div className="fw-semibold">
                         +91 9027693960
                       </div>
+
                     </div>
 
                   </div>
@@ -1116,7 +1109,8 @@ const Home = ({ userRole }) => {
           <hr
             className="my-3"
             style={{
-              borderColor: "rgba(255,255,255,0.15)",
+              borderColor:
+                "rgba(255,255,255,0.15)",
             }}
           />
 

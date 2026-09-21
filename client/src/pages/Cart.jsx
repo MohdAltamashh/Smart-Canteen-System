@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
+const API_URL =
+  process.env.REACT_APP_API_URL ||
+  "http://localhost:5000/api";
+
 const Cart = () => {
   const [cartItems, setCartItems] = useState([]);
   const [placingOrder, setPlacingOrder] = useState(false);
@@ -148,7 +152,7 @@ const Cart = () => {
       }
 
       const response = await fetch(
-        "http://localhost:5000/api/payment/verify",
+        `${API_URL}/payment/verify`,
         {
           method: "POST",
 
@@ -378,7 +382,7 @@ const Cart = () => {
       };
 
       const response = await fetch(
-        "http://localhost:5000/api/payment/create-order",
+        `${API_URL}/payment/create-order`,
         {
           method: "POST",
 

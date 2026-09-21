@@ -1,6 +1,16 @@
+// client/src/pages/CanteenMenu.jsx
+
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
+
+// =====================================================
+// API URL
+// =====================================================
+
+const API_URL =
+  process.env.REACT_APP_API_URL ||
+  "http://localhost:5000/api";
 
 // =====================================================
 // ADD TO CART
@@ -21,7 +31,7 @@ const addToCart = (item) => {
       cartItem._id === item._id
         ? {
             ...cartItem,
-            quantity: cartItem.quantity + 1,
+            quantity: Number(cartItem.quantity || 0) + 1,
           }
         : cartItem
     );
@@ -67,11 +77,18 @@ const CanteenMenu = () => {
   useEffect(() => {
     const fetchFoodItems = async () => {
       try {
+        setLoading(true);
+        setError("");
+
         const response = await axios.get(
-          "http://localhost:5000/api/food"
+          `${API_URL}/food`
         );
 
-        setFoodItems(response.data);
+        setFoodItems(
+          Array.isArray(response.data)
+            ? response.data
+            : []
+        );
       } catch (err) {
         console.error(
           "Error fetching food items:",
@@ -79,7 +96,8 @@ const CanteenMenu = () => {
         );
 
         setError(
-          "Food menu load nahi ho saka."
+          err.response?.data?.message ||
+            "Food menu load nahi ho saka."
         );
       } finally {
         setLoading(false);
@@ -112,9 +130,15 @@ const CanteenMenu = () => {
 
   const filteredItems = availableItems.filter(
     (item) => {
-      const matchesSearch = item.name
-        .toLowerCase()
-        .includes(search.toLowerCase());
+      const itemName = String(
+        item.name || ""
+      ).toLowerCase();
+
+      const searchText =
+        search.toLowerCase().trim();
+
+      const matchesSearch =
+        itemName.includes(searchText);
 
       const matchesCategory =
         category === "All" ||
@@ -139,6 +163,15 @@ const CanteenMenu = () => {
     setTimeout(() => {
       setAddedItem("");
     }, 1200);
+  };
+
+  // =====================================================
+  // RESET FILTERS
+  // =====================================================
+
+  const resetFilters = () => {
+    setSearch("");
+    setCategory("All");
   };
 
   // =====================================================
@@ -179,7 +212,9 @@ const CanteenMenu = () => {
       >
         <div className="alert alert-danger text-center">
           <div
-            style={{ fontSize: "45px" }}
+            style={{
+              fontSize: "45px",
+            }}
           >
             ⚠️
           </div>
@@ -191,6 +226,16 @@ const CanteenMenu = () => {
           <p className="mb-0">
             {error}
           </p>
+
+          <button
+            type="button"
+            className="btn btn-outline-danger mt-3"
+            onClick={() =>
+              window.location.reload()
+            }
+          >
+            Try Again
+          </button>
         </div>
       </div>
     );
@@ -207,7 +252,6 @@ const CanteenMenu = () => {
         background: "#f5f8fc",
       }}
     >
-
       {/* ================================================= */}
       {/* PAGE HEADER */}
       {/* ================================================= */}
@@ -220,11 +264,10 @@ const CanteenMenu = () => {
         }}
       >
         <div className="container py-5">
-
           <div className="row align-items-center">
+            {/* LEFT */}
 
             <div className="col-lg-8">
-
               <span className="badge bg-warning text-dark px-3 py-2 mb-3">
                 🍴 TODAY'S MENU
               </span>
@@ -248,15 +291,16 @@ const CanteenMenu = () => {
                   lineHeight: 1.7,
                 }}
               >
-                Browse the available canteen items,
-                add your favourites to the cart and
-                place your order online.
+                Browse the available canteen
+                items, add your favourites to
+                the cart and place your order
+                online.
               </p>
-
             </div>
 
-            <div className="col-lg-4 text-center mt-4 mt-lg-0">
+            {/* RIGHT */}
 
+            <div className="col-lg-4 text-center mt-4 mt-lg-0">
               <div
                 style={{
                   fontSize: "90px",
@@ -271,11 +315,8 @@ const CanteenMenu = () => {
                   🎫 Smart Token System
                 </span>
               </div>
-
             </div>
-
           </div>
-
         </div>
       </section>
 
@@ -284,15 +325,12 @@ const CanteenMenu = () => {
       {/* ================================================= */}
 
       <div className="container py-5">
-
         {/* ================================================= */}
         {/* TOP INFORMATION */}
         {/* ================================================= */}
 
         <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
-
           <div>
-
             <h2 className="fw-bold mb-1">
               Canteen Menu
             </h2>
@@ -301,7 +339,6 @@ const CanteenMenu = () => {
               {availableItems.length} food items
               available
             </p>
-
           </div>
 
           <Link
@@ -310,21 +347,18 @@ const CanteenMenu = () => {
           >
             🛒 View Cart
           </Link>
-
         </div>
 
         {/* ================================================= */}
-        {/* SEARCH */}
+        {/* SEARCH & FILTER */}
         {/* ================================================= */}
 
         <div className="card p-3 mb-4">
-
           <div className="row g-3 align-items-center">
+            {/* SEARCH */}
 
             <div className="col-lg-7">
-
               <div className="input-group">
-
                 <span className="input-group-text bg-white">
                   🔎
                 </span>
@@ -339,16 +373,25 @@ const CanteenMenu = () => {
                   }
                 />
 
+                {search && (
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary"
+                    onClick={() =>
+                      setSearch("")
+                    }
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
-
             </div>
 
+            {/* CATEGORIES */}
+
             <div className="col-lg-5">
-
               <div className="d-flex flex-wrap gap-2">
-
                 {categories.map((cat) => (
-
                   <button
                     key={cat}
                     type="button"
@@ -363,34 +406,51 @@ const CanteenMenu = () => {
                   >
                     {cat}
                   </button>
-
                 ))}
-
               </div>
+            </div>
+          </div>
+        </div>
 
+        {/* ================================================= */}
+        {/* FILTER RESULT INFO */}
+        {/* ================================================= */}
+
+        {(search || category !== "All") && (
+          <div className="d-flex justify-content-between align-items-center mb-4">
+            <div className="text-muted">
+              Showing{" "}
+              <strong>
+                {filteredItems.length}
+              </strong>{" "}
+              result
+              {filteredItems.length !== 1
+                ? "s"
+                : ""}
             </div>
 
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary"
+              onClick={resetFilters}
+            >
+              Reset Filters
+            </button>
           </div>
-
-        </div>
+        )}
 
         {/* ================================================= */}
         {/* FOOD GRID */}
         {/* ================================================= */}
 
         {filteredItems.length > 0 ? (
-
           <div className="row g-4">
-
             {filteredItems.map((item) => (
-
               <div
                 className="col-sm-6 col-lg-4"
                 key={item._id}
               >
-
                 <div className="card h-100 overflow-hidden">
-
                   {/* FOOD IMAGE */}
 
                   <div
@@ -401,9 +461,7 @@ const CanteenMenu = () => {
                       overflow: "hidden",
                     }}
                   >
-
                     {item.imageUrl ? (
-
                       <img
                         src={item.imageUrl}
                         alt={item.name}
@@ -415,9 +473,7 @@ const CanteenMenu = () => {
                             "transform 0.4s ease",
                         }}
                       />
-
                     ) : (
-
                       <div
                         style={{
                           height: "100%",
@@ -429,7 +485,6 @@ const CanteenMenu = () => {
                       >
                         🍽️
                       </div>
-
                     )}
 
                     {/* AVAILABLE BADGE */}
@@ -445,15 +500,12 @@ const CanteenMenu = () => {
                     >
                       ✓ Available
                     </span>
-
                   </div>
 
                   {/* FOOD BODY */}
 
                   <div className="card-body p-4 d-flex flex-column">
-
                     <div className="d-flex justify-content-between align-items-start gap-2">
-
                       <h5 className="fw-bold mb-1">
                         {item.name}
                       </h5>
@@ -461,12 +513,12 @@ const CanteenMenu = () => {
                       <span
                         className="badge bg-light text-primary"
                         style={{
-                          whiteSpace: "nowrap",
+                          whiteSpace:
+                            "nowrap",
                         }}
                       >
                         {item.category}
                       </span>
-
                     </div>
 
                     <p
@@ -483,11 +535,8 @@ const CanteenMenu = () => {
                     {/* PRICE + BUTTON */}
 
                     <div className="mt-auto pt-3 border-top">
-
-                      <div className="d-flex justify-content-between align-items-center">
-
+                      <div className="d-flex justify-content-between align-items-center gap-2">
                         <div>
-
                           <small className="text-muted d-block">
                             Price
                           </small>
@@ -498,13 +547,16 @@ const CanteenMenu = () => {
                               fontSize: "22px",
                             }}
                           >
-                            ₹{item.price}
+                            ₹
+                            {Number(
+                              item.price || 0
+                            )}
                           </span>
 
                           <small className="text-muted">
-                            {" "} / item
+                            {" "}
+                            / item
                           </small>
-
                         </div>
 
                         <button
@@ -515,36 +567,29 @@ const CanteenMenu = () => {
                               : "btn-primary"
                           }`}
                           onClick={() =>
-                            handleAddToCart(item)
+                            handleAddToCart(
+                              item
+                            )
                           }
                         >
-                          {addedItem === item._id
+                          {addedItem ===
+                          item._id
                             ? "✓ Added"
                             : "🛒 Add to Cart"}
                         </button>
-
                       </div>
-
                     </div>
-
                   </div>
-
                 </div>
-
               </div>
-
             ))}
-
           </div>
-
         ) : (
-
           /* ================================================= */
           /* NO RESULTS */
           /* ================================================= */
 
           <div className="card text-center py-5">
-
             <div
               style={{
                 fontSize: "65px",
@@ -565,18 +610,12 @@ const CanteenMenu = () => {
             <button
               type="button"
               className="btn btn-outline-primary mx-auto"
-              onClick={() => {
-                setSearch("");
-                setCategory("All");
-              }}
+              onClick={resetFilters}
             >
               Reset Filters
             </button>
-
           </div>
-
         )}
-
       </div>
 
       {/* ================================================= */}
@@ -584,7 +623,6 @@ const CanteenMenu = () => {
       {/* ================================================= */}
 
       <section className="container pb-5">
-
         <div
           className="card overflow-hidden"
           style={{
@@ -593,13 +631,9 @@ const CanteenMenu = () => {
             color: "#fff",
           }}
         >
-
           <div className="card-body p-4 p-md-5">
-
             <div className="row align-items-center">
-
               <div className="col-lg-8">
-
                 <span className="badge bg-warning text-dark mb-3">
                   🎫 SMART ORDERING
                 </span>
@@ -612,30 +646,24 @@ const CanteenMenu = () => {
                   className="mb-0"
                   style={{ opacity: 0.9 }}
                 >
-                  Add food to your cart, make a secure
-                  online payment and get your unique
-                  token number instantly.
+                  Add food to your cart, make a
+                  secure online payment and get
+                  your unique token number
+                  instantly.
                 </p>
-
               </div>
 
               <div className="col-lg-4 text-lg-end mt-4 mt-lg-0">
-
                 <Link
                   to="/cart"
                   className="btn btn-warning btn-lg fw-bold px-4"
                 >
                   🛒 Go To Cart →
                 </Link>
-
               </div>
-
             </div>
-
           </div>
-
         </div>
-
       </section>
 
       {/* ================================================= */}
@@ -643,9 +671,7 @@ const CanteenMenu = () => {
       {/* ================================================= */}
 
       <footer className="py-4">
-
         <div className="container text-center">
-
           <div style={{ fontSize: "28px" }}>
             🍴
           </div>
@@ -659,13 +685,10 @@ const CanteenMenu = () => {
           </p>
 
           <small className="text-white-50">
-            © 2026 Smart Canteen System
+            ©️ 2026 Smart Canteen System
           </small>
-
         </div>
-
       </footer>
-
     </div>
   );
 };

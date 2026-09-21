@@ -385,6 +385,9 @@ const MyOrders = () => {
   useEffect(() => {
     fetchOrders();
     fetchQueue();
+
+    // These functions intentionally run once when the page loads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // =====================================================
@@ -505,6 +508,9 @@ const MyOrders = () => {
 
       socket.disconnect();
     };
+
+    // Socket connection is intentionally initialized once per page mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // =====================================================

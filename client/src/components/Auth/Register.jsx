@@ -10,6 +10,14 @@ const Register = () => {
   const history = useHistory();
 
   // =====================================================
+  // API URL
+  // =====================================================
+
+  const API_URL =
+    process.env.REACT_APP_API_URL ||
+    "http://localhost:5000/api";
+
+  // =====================================================
   // FORM STATES
   // =====================================================
 
@@ -45,7 +53,6 @@ const Register = () => {
     setError("");
     setSuccess("");
 
-    // Validate fields
     if (
       !name.trim() ||
       !email.trim() ||
@@ -66,10 +73,8 @@ const Register = () => {
     try {
       setLoading(true);
 
-      // IMPORTANT:
-      // Keep the original working OTP endpoint.
       const response = await axios.post(
-        "http://localhost:5000/api/auth/send-otp",
+        `${API_URL}/auth/send-otp`,
         {
           name: name.trim(),
           email: email.trim(),
@@ -121,10 +126,8 @@ const Register = () => {
     try {
       setLoading(true);
 
-      // IMPORTANT:
-      // Keep the original working OTP endpoint.
       const response = await axios.post(
-        "http://localhost:5000/api/auth/verify-otp",
+        `${API_URL}/auth/verify-otp`,
         {
           email: email.trim(),
           otp: enteredOTP,
@@ -136,15 +139,11 @@ const Register = () => {
           "Registration successful!"
       );
 
-      // Redirect to student login
       setTimeout(() => {
         history.push("/login/student");
       }, 1200);
     } catch (err) {
-      console.error(
-        "Verify OTP error:",
-        err
-      );
+      console.error("Verify OTP error:", err);
 
       setError(
         err.response?.data?.message ||
@@ -273,8 +272,6 @@ const Register = () => {
               canteen experience.
             </p>
 
-            {/* FEATURES */}
-
             <div
               style={{
                 marginTop: "25px",
@@ -284,11 +281,7 @@ const Register = () => {
               }}
             >
               <div className="d-flex align-items-center gap-3">
-                <span
-                  style={{
-                    fontSize: "23px",
-                  }}
-                >
+                <span style={{ fontSize: "23px" }}>
                   🍔
                 </span>
 
@@ -297,11 +290,7 @@ const Register = () => {
                     Easy Food Ordering
                   </div>
 
-                  <small
-                    style={{
-                      opacity: 0.65,
-                    }}
-                  >
+                  <small style={{ opacity: 0.65 }}>
                     Order food without waiting
                     in long queues.
                   </small>
@@ -309,11 +298,7 @@ const Register = () => {
               </div>
 
               <div className="d-flex align-items-center gap-3">
-                <span
-                  style={{
-                    fontSize: "23px",
-                  }}
-                >
+                <span style={{ fontSize: "23px" }}>
                   🎟️
                 </span>
 
@@ -322,11 +307,7 @@ const Register = () => {
                     Digital Token
                   </div>
 
-                  <small
-                    style={{
-                      opacity: 0.65,
-                    }}
-                  >
+                  <small style={{ opacity: 0.65 }}>
                     Get your token instantly
                     after ordering.
                   </small>
@@ -334,11 +315,7 @@ const Register = () => {
               </div>
 
               <div className="d-flex align-items-center gap-3">
-                <span
-                  style={{
-                    fontSize: "23px",
-                  }}
-                >
+                <span style={{ fontSize: "23px" }}>
                   🔔
                 </span>
 
@@ -347,11 +324,7 @@ const Register = () => {
                     Live Order Updates
                   </div>
 
-                  <small
-                    style={{
-                      opacity: 0.65,
-                    }}
-                  >
+                  <small style={{ opacity: 0.65 }}>
                     Know when your order is
                     ready.
                   </small>
@@ -371,8 +344,6 @@ const Register = () => {
                 "40px clamp(25px, 5vw, 55px)",
             }}
           >
-            {/* HEADER */}
-
             <div className="text-center mb-4">
               <div
                 style={{
@@ -408,9 +379,7 @@ const Register = () => {
               </p>
             </div>
 
-            {/* ================================================= */}
             {/* ALERTS */}
-            {/* ================================================= */}
 
             {error && (
               <div
@@ -434,9 +403,7 @@ const Register = () => {
               </div>
             )}
 
-            {/* ================================================= */}
             {/* REGISTRATION FORM */}
-            {/* ================================================= */}
 
             {!otpSent ? (
               <form
@@ -455,9 +422,7 @@ const Register = () => {
                     className="form-control"
                     value={name}
                     onChange={(e) =>
-                      setName(
-                        e.target.value
-                      )
+                      setName(e.target.value)
                     }
                     autoComplete="name"
                     placeholder="Enter your full name"
@@ -481,9 +446,7 @@ const Register = () => {
                     className="form-control"
                     value={email}
                     onChange={(e) =>
-                      setEmail(
-                        e.target.value
-                      )
+                      setEmail(e.target.value)
                     }
                     autoComplete="email"
                     placeholder="Enter your email address"
@@ -516,9 +479,7 @@ const Register = () => {
                       className="form-control"
                       value={password}
                       onChange={(e) =>
-                        setPassword(
-                          e.target.value
-                        )
+                        setPassword(e.target.value)
                       }
                       autoComplete="new-password"
                       placeholder="Create a password"
@@ -535,13 +496,11 @@ const Register = () => {
                       type="button"
                       onClick={() =>
                         setShowPassword(
-                          (current) =>
-                            !current
+                          (current) => !current
                         )
                       }
                       style={{
-                        position:
-                          "absolute",
+                        position: "absolute",
                         right: "12px",
                         top: "50%",
                         transform:
@@ -580,9 +539,7 @@ const Register = () => {
                     className="form-select"
                     value={department}
                     onChange={(e) =>
-                      setDepartment(
-                        e.target.value
-                      )
+                      setDepartment(e.target.value)
                     }
                     required
                     style={{
@@ -594,57 +551,23 @@ const Register = () => {
                       Select Department / Course
                     </option>
 
-                    <option value="MCA">
-                      MCA
-                    </option>
-
-                    <option value="BCA">
-                      BCA
-                    </option>
-
-                    <option value="BBA">
-                      BBA
-                    </option>
-
-                    <option value="MBA">
-                      MBA
-                    </option>
-
-                    <option value="B.Tech">
-                      B.Tech
-                    </option>
-
+                    <option value="MCA">MCA</option>
+                    <option value="BCA">BCA</option>
+                    <option value="BBA">BBA</option>
+                    <option value="MBA">MBA</option>
+                    <option value="B.Tech">B.Tech</option>
                     <option value="B.Pharmacy">
                       B.Pharmacy
                     </option>
-
-                    <option value="BMRIT">
-                      BMRIT
-                    </option>
-
-                    <option value="B.Com">
-                      B.Com
-                    </option>
-
-                    <option value="BA">
-                      BA
-                    </option>
-
-                    <option value="LLB">
-                      LLB
-                    </option>
-
-                    <option value="B.Sc">
-                      B.Sc
-                    </option>
-
+                    <option value="BMRIT">BMRIT</option>
+                    <option value="B.Com">B.Com</option>
+                    <option value="BA">BA</option>
+                    <option value="LLB">LLB</option>
+                    <option value="B.Sc">B.Sc</option>
                     <option value="D.Pharmacy">
                       D.Pharmacy
                     </option>
-
-                    <option value="BAMS">
-                      BAMS
-                    </option>
+                    <option value="BAMS">BAMS</option>
                   </select>
                 </div>
 
@@ -717,13 +640,9 @@ const Register = () => {
                 </div>
               </form>
             ) : (
-              /* ================================================= */
               /* OTP VERIFICATION */
-              /* ================================================= */
 
-              <form
-                onSubmit={handleVerifyOTP}
-              >
+              <form onSubmit={handleVerifyOTP}>
                 {/* EMAIL DISPLAY */}
 
                 <div
@@ -743,8 +662,7 @@ const Register = () => {
                   <strong
                     style={{
                       color: "#17365d",
-                      wordBreak:
-                        "break-word",
+                      wordBreak: "break-word",
                     }}
                   >
                     {email}
@@ -765,14 +683,8 @@ const Register = () => {
                     onChange={(e) => {
                       const value =
                         e.target.value
-                          .replace(
-                            /\D/g,
-                            ""
-                          )
-                          .slice(
-                            0,
-                            6
-                          );
+                          .replace(/\D/g, "")
+                          .slice(0, 6);
 
                       setOtp(value);
                     }}
@@ -802,8 +714,7 @@ const Register = () => {
                   type="submit"
                   className="btn btn-primary w-100 fw-bold"
                   disabled={
-                    loading ||
-                    otp.length !== 6
+                    loading || otp.length !== 6
                   }
                   style={{
                     height: "50px",
@@ -817,7 +728,6 @@ const Register = () => {
                         className="spinner-border spinner-border-sm me-2"
                         role="status"
                       />
-
                       Verifying...
                     </>
                   ) : (
@@ -830,9 +740,7 @@ const Register = () => {
                 <button
                   type="button"
                   className="btn btn-outline-secondary w-100 mt-2"
-                  onClick={
-                    handleChangeDetails
-                  }
+                  onClick={handleChangeDetails}
                   disabled={loading}
                   style={{
                     height: "48px",
