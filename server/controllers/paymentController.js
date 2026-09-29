@@ -561,31 +561,31 @@ const verifyPayment = async (
     await payment.save();
 
 
-    // =================================================
-    // SEND ORDER CONFIRMATION EMAIL
-    // =================================================
+    // SEND ORDER CONFIRMATION EMAIL WITHOUT BLOCKING PAYMENT RESPONSE
 
-    try {
+try {
+  const {
+    sendOrderConfirmationEmail,
+  } = require("../services/emailService");
 
-      const {
-        sendOrderConfirmationEmail,
-      } =
-        require(
-          "../services/emailService"
-        );
+  // Email background mein send hogi.
+  // Payment verification ka response email ka wait nahi karega.
 
+  Promise.resolve(
+    sendOrderConfirmationEmail(order)
+  ).catch((emailError) => {
+    console.error(
+      "Payment order email error:",
+      emailError.message
+    );
+  });
 
-      await sendOrderConfirmationEmail(
-        order
-      );
-
-    } catch (emailError) {
-
-      console.error(
-        "Payment order email error:",
-        emailError.message
-      );
-    }
+} catch (emailError) {
+  console.error(
+    "Payment order email error:",
+    emailError.message
+  );
+}
 
 
     // =================================================
