@@ -6,25 +6,34 @@ const User = require("../models/User");
 const RegistrationOTP = require("../models/RegistrationOTP");
 
 // ==========================================
-// NODEMAILER GMAIL SMTP CONFIGURATION
+// GMAIL OAUTH2 CONFIGURATION
 // ==========================================
 
 const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
+        type: "OAuth2",
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
+        clientId: process.env.GMAIL_CLIENT_ID,
+        clientSecret: process.env.GMAIL_CLIENT_SECRET,
+        refreshToken: process.env.GMAIL_REFRESH_TOKEN
     }
 });
 
 // ==========================================
-// SEND OTP EMAIL USING NODEMAILER
+// SEND OTP EMAIL
 // ==========================================
 
 const sendOTPEmail = async (to, name, otp, isResend = false) => {
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+
+    if (
+        !process.env.EMAIL_USER ||
+        !process.env.GMAIL_CLIENT_ID ||
+        !process.env.GMAIL_CLIENT_SECRET ||
+        !process.env.GMAIL_REFRESH_TOKEN
+    ) {
         throw new Error(
-            "EMAIL_USER or EMAIL_PASS is missing in environment variables"
+            "Gmail OAuth2 environment variables are missing"
         );
     }
 
@@ -102,7 +111,10 @@ const sendOTPEmail = async (to, name, otp, isResend = false) => {
         html: html
     });
 
-    console.log("OTP email sent using Nodemailer:", info.messageId);
+    console.log(
+        "OTP email sent using Gmail OAuth2:",
+        info.messageId
+    );
 
     return info;
 };
@@ -112,6 +124,7 @@ const sendOTPEmail = async (to, name, otp, isResend = false) => {
 // ==========================================
 
 const sendRegistrationOTP = async (req, res) => {
+
     const {
         email,
         password,
@@ -120,6 +133,7 @@ const sendRegistrationOTP = async (req, res) => {
     } = req.body;
 
     try {
+
         if (!email || !password || !name || !department) {
             return res.status(400).json({
                 message: "All fields are required"
@@ -182,7 +196,8 @@ const sendRegistrationOTP = async (req, res) => {
 
         await registrationOTP.save();
 
-        // Send OTP through Gmail SMTP
+        // Send OTP using Gmail OAuth2
+
         await sendOTPEmail(
             cleanEmail,
             cleanName,
@@ -194,6 +209,7 @@ const sendRegistrationOTP = async (req, res) => {
         });
 
     } catch (error) {
+
         console.error(
             "Send Registration OTP Error:",
             error.message
@@ -211,9 +227,11 @@ const sendRegistrationOTP = async (req, res) => {
 // ==========================================
 
 const verifyRegistrationOTP = async (req, res) => {
+
     const { email, otp } = req.body;
 
     try {
+
         if (!email || !otp) {
             return res.status(400).json({
                 message: "Email and OTP are required"
@@ -234,6 +252,7 @@ const verifyRegistrationOTP = async (req, res) => {
         }
 
         if (new Date() > registrationOTP.expiresAt) {
+
             await RegistrationOTP.deleteOne({
                 _id: registrationOTP._id
             });
@@ -254,6 +273,7 @@ const verifyRegistrationOTP = async (req, res) => {
         });
 
         if (existingUser) {
+
             await RegistrationOTP.deleteOne({
                 _id: registrationOTP._id
             });
@@ -291,6 +311,7 @@ const verifyRegistrationOTP = async (req, res) => {
         });
 
     } catch (error) {
+
         console.error(
             "Verify Registration OTP Error:",
             error
@@ -314,9 +335,11 @@ const verifyRegistrationOTP = async (req, res) => {
 // ==========================================
 
 const resendRegistrationOTP = async (req, res) => {
+
     const { email } = req.body;
 
     try {
+
         if (!email) {
             return res.status(400).json({
                 message: "Email is required"
@@ -341,6 +364,7 @@ const resendRegistrationOTP = async (req, res) => {
         });
 
         if (existingUser) {
+
             await RegistrationOTP.deleteMany({
                 email: cleanEmail
             });
@@ -351,6 +375,7 @@ const resendRegistrationOTP = async (req, res) => {
         }
 
         // 60-second resend cooldown
+
         const timeSinceLastOTP =
             Date.now() -
             new Date(registrationOTP.createdAt).getTime();
@@ -358,6 +383,7 @@ const resendRegistrationOTP = async (req, res) => {
         const cooldown = 60 * 1000;
 
         if (timeSinceLastOTP < cooldown) {
+
             const remainingSeconds = Math.ceil(
                 (cooldown - timeSinceLastOTP) / 1000
             );
@@ -383,7 +409,8 @@ const resendRegistrationOTP = async (req, res) => {
 
         await registrationOTP.save();
 
-        // Resend OTP through Gmail SMTP
+        // Resend OTP using Gmail OAuth2
+
         await sendOTPEmail(
             cleanEmail,
             registrationOTP.name,
@@ -396,6 +423,7 @@ const resendRegistrationOTP = async (req, res) => {
         });
 
     } catch (error) {
+
         console.error(
             "Resend Registration OTP Error:",
             error.message
