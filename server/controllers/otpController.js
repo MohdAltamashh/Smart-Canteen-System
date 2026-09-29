@@ -1,39 +1,47 @@
-
 const bcrypt = require("bcryptjs");
-const nodemailer = require("nodemailer");
+const { google } = require("googleapis");
+const crypto = require("crypto");
 
 const User = require("../models/User");
 const RegistrationOTP = require("../models/RegistrationOTP");
 
 // ==========================================
-// GMAIL OAUTH2 CONFIGURATION
+// GMAIL API CONFIGURATION (NO SMTP)
 // ==========================================
 
-const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-        type: "OAuth2",
-        user: process.env.EMAIL_USER,
-        clientId: process.env.GMAIL_CLIENT_ID,
-        clientSecret: process.env.GMAIL_CLIENT_SECRET,
-        refreshToken: process.env.GMAIL_REFRESH_TOKEN
-    }
+const oauth2Client = new google.auth.OAuth2(
+    process.env.GMAIL_CLIENT_ID,
+    process.env.GMAIL_CLIENT_SECRET,
+    "https://developers.google.com/oauthplayground"
+);
+
+oauth2Client.setCredentials({
+    refresh_token: process.env.GMAIL_REFRESH_TOKEN
+});
+
+const gmail = google.gmail({
+    version: "v1",
+    auth: oauth2Client
 });
 
 // ==========================================
-// SEND OTP EMAIL
+// SEND EMAIL USING GMAIL API
 // ==========================================
 
-const sendOTPEmail = async (to, name, otp, isResend = false) => {
-
+const sendOTPEmail = async (
+    to,
+    name,
+    otp,
+    isResend = false
+) => {
     if (
-        !process.env.EMAIL_USER ||
         !process.env.GMAIL_CLIENT_ID ||
         !process.env.GMAIL_CLIENT_SECRET ||
-        !process.env.GMAIL_REFRESH_TOKEN
+        !process.env.GMAIL_REFRESH_TOKEN ||
+        !process.env.EMAIL_USER
     ) {
         throw new Error(
-            "Gmail OAuth2 environment variables are missing"
+            "Missing Gmail API environment variables in Render"
         );
     }
 
@@ -104,35 +112,55 @@ const sendOTPEmail = async (to, name, otp, isResend = false) => {
         </div>
     `;
 
-    const info = await transporter.sendMail({
-        from: `"Campus Bite" <${process.env.EMAIL_USER}>`,
-        to: to,
-        subject: subject,
-        html: html
+    // Build an email message for the Gmail API
+    const messageParts = [
+        `From: "Campus Bite" <${process.env.EMAIL_USER}>`,
+        `To: ${to}`,
+        `Subject: ${subject}`,
+        "MIME-Version: 1.0",
+        "Content-Type: text/html; charset=UTF-8",
+        "Content-Transfer-Encoding: base64",
+        "",
+        Buffer.from(html, "utf-8").toString("base64")
+    ];
+
+    const rawMessage = messageParts.join("\r\n");
+
+    const encodedMessage = Buffer
+        .from(rawMessage, "utf-8")
+        .toString("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+
+    // Send email using Gmail HTTPS API, not SMTP
+    const response = await gmail.users.messages.send({
+        userId: "me",
+        requestBody: {
+            raw: encodedMessage
+        }
     });
 
     console.log(
-        "OTP email sent using Gmail OAuth2:",
-        info.messageId
+        "Gmail API email sent successfully:",
+        response.data.id
     );
 
-    return info;
+    return response.data;
 };
 
 // ==========================================
-// SEND STUDENT REGISTRATION OTP
+// SEND REGISTRATION OTP
 // ==========================================
 
 const sendRegistrationOTP = async (req, res) => {
-
-    const {
-        email,
-        password,
-        name,
-        department
-    } = req.body;
-
     try {
+        const {
+            email,
+            password,
+            name,
+            department
+        } = req.body;
 
         if (!email || !password || !name || !department) {
             return res.status(400).json({
@@ -168,9 +196,9 @@ const sendRegistrationOTP = async (req, res) => {
             });
         }
 
-        const otp = Math.floor(
-            100000 + Math.random() * 900000
-        ).toString();
+        const otp = crypto
+            .randomInt(100000, 1000000)
+            .toString();
 
         const expiresAt = new Date(
             Date.now() + 5 * 60 * 1000
@@ -196,8 +224,7 @@ const sendRegistrationOTP = async (req, res) => {
 
         await registrationOTP.save();
 
-        // Send OTP using Gmail OAuth2
-
+        // Send OTP through Gmail API
         await sendOTPEmail(
             cleanEmail,
             cleanName,
@@ -209,28 +236,27 @@ const sendRegistrationOTP = async (req, res) => {
         });
 
     } catch (error) {
-
         console.error(
             "Send Registration OTP Error:",
-            error.message
+            error.response?.data || error.message
         );
 
         return res.status(500).json({
             message: "Failed to send OTP. Please try again.",
-            error: error.message
+            error:
+                error.response?.data?.error?.message ||
+                error.message
         });
     }
 };
 
 // ==========================================
-// VERIFY STUDENT REGISTRATION OTP
+// VERIFY REGISTRATION OTP
 // ==========================================
 
 const verifyRegistrationOTP = async (req, res) => {
-
-    const { email, otp } = req.body;
-
     try {
+        const { email, otp } = req.body;
 
         if (!email || !otp) {
             return res.status(400).json({
@@ -247,24 +273,26 @@ const verifyRegistrationOTP = async (req, res) => {
 
         if (!registrationOTP) {
             return res.status(400).json({
-                message: "OTP not found. Please request a new OTP."
+                message:
+                    "OTP not found. Please request a new OTP."
             });
         }
 
         if (new Date() > registrationOTP.expiresAt) {
-
             await RegistrationOTP.deleteOne({
                 _id: registrationOTP._id
             });
 
             return res.status(400).json({
-                message: "OTP has expired. Please request a new OTP."
+                message:
+                    "OTP has expired. Please request a new OTP."
             });
         }
 
         if (registrationOTP.otp !== cleanOTP) {
             return res.status(400).json({
-                message: "Invalid OTP. Please enter the correct OTP."
+                message:
+                    "Invalid OTP. Please enter the correct OTP."
             });
         }
 
@@ -273,7 +301,6 @@ const verifyRegistrationOTP = async (req, res) => {
         });
 
         if (existingUser) {
-
             await RegistrationOTP.deleteOne({
                 _id: registrationOTP._id
             });
@@ -298,23 +325,19 @@ const verifyRegistrationOTP = async (req, res) => {
         });
 
         console.log(
-            "Student registered successfully after OTP verification:",
-            {
-                email: newUser.email,
-                name: newUser.name,
-                department: newUser.department
-            }
+            "Student registered successfully:",
+            newUser.email
         );
 
         return res.status(201).json({
-            message: "OTP verified successfully. Student account created."
+            message:
+                "OTP verified successfully. Student account created."
         });
 
     } catch (error) {
-
         console.error(
             "Verify Registration OTP Error:",
-            error
+            error.message
         );
 
         if (error.code === 11000) {
@@ -331,14 +354,12 @@ const verifyRegistrationOTP = async (req, res) => {
 };
 
 // ==========================================
-// RESEND STUDENT REGISTRATION OTP
+// RESEND REGISTRATION OTP
 // ==========================================
 
 const resendRegistrationOTP = async (req, res) => {
-
-    const { email } = req.body;
-
     try {
+        const { email } = req.body;
 
         if (!email) {
             return res.status(400).json({
@@ -364,7 +385,6 @@ const resendRegistrationOTP = async (req, res) => {
         });
 
         if (existingUser) {
-
             await RegistrationOTP.deleteMany({
                 email: cleanEmail
             });
@@ -375,7 +395,6 @@ const resendRegistrationOTP = async (req, res) => {
         }
 
         // 60-second resend cooldown
-
         const timeSinceLastOTP =
             Date.now() -
             new Date(registrationOTP.createdAt).getTime();
@@ -383,7 +402,6 @@ const resendRegistrationOTP = async (req, res) => {
         const cooldown = 60 * 1000;
 
         if (timeSinceLastOTP < cooldown) {
-
             const remainingSeconds = Math.ceil(
                 (cooldown - timeSinceLastOTP) / 1000
             );
@@ -395,22 +413,19 @@ const resendRegistrationOTP = async (req, res) => {
             });
         }
 
-        const newOTP = Math.floor(
-            100000 + Math.random() * 900000
-        ).toString();
-
-        const newExpiresAt = new Date(
-            Date.now() + 5 * 60 * 1000
-        );
+        const newOTP = crypto
+            .randomInt(100000, 1000000)
+            .toString();
 
         registrationOTP.otp = newOTP;
-        registrationOTP.expiresAt = newExpiresAt;
+        registrationOTP.expiresAt = new Date(
+            Date.now() + 5 * 60 * 1000
+        );
         registrationOTP.createdAt = new Date();
 
         await registrationOTP.save();
 
-        // Resend OTP using Gmail OAuth2
-
+        // Send new OTP through Gmail API
         await sendOTPEmail(
             cleanEmail,
             registrationOTP.name,
@@ -423,15 +438,16 @@ const resendRegistrationOTP = async (req, res) => {
         });
 
     } catch (error) {
-
         console.error(
             "Resend Registration OTP Error:",
-            error.message
+            error.response?.data || error.message
         );
 
         return res.status(500).json({
             message: "Failed to resend OTP. Please try again.",
-            error: error.message
+            error:
+                error.response?.data?.error?.message ||
+                error.message
         });
     }
 };
