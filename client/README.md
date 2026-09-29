@@ -1,8 +1,8 @@
-# Smart Campus Complaint Management System - Client README
+# Digital Food Ordering & Service Platform - Client README
 
 ## Project Overview
 
-This project is a Smart Campus Complaint Management System built using the MERN stack (MongoDB, Express, React, Node.js). The focus of Phase 1 is on Authentication and User Management.
+This project is a Digital Food Ordering & Service Platform built using the MERN stack (MongoDB, Express, React, Node.js). The focus of Phase 1 is on Authentication and User Management.
 
 ## Project Structure
 

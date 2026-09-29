@@ -15,7 +15,7 @@ async function sendTestEmail() {
     let info = await transporter.sendMail({
       from: `"Campus System" <${process.env.EMAIL_USER}>`,
       to: process.env.EMAIL_TO,
-      subject: 'Test Email from Smart Campus System ✅',
+      subject: 'Test Email from Campus Bite ✅',
       text: 'This is a test email sent from your system successfully.',
     });
 
