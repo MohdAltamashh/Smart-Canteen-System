@@ -11,6 +11,9 @@ const Cart = () => {
   const [orderSuccess, setOrderSuccess] = useState(null);
   const [error, setError] = useState("");
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [razorpayLoaded, setRazorpayLoaded] = useState(
+    !!window.Razorpay
+  );
 
   // =====================================================
   // LOAD CART
@@ -22,9 +25,9 @@ const Cart = () => {
         const savedCart =
           JSON.parse(localStorage.getItem("cart")) || [];
 
-        setCartItems(savedCart);
-      } catch (error) {
-        console.error("Cart loading error:", error);
+        setCartItems(Array.isArray(savedCart) ? savedCart : []);
+      } catch (err) {
+        console.error("Cart loading error:", err);
         setCartItems([]);
       }
     };
@@ -39,38 +42,67 @@ const Cart = () => {
   }, []);
 
   // =====================================================
-  // LOAD RAZORPAY CHECKOUT
+  // LOAD RAZORPAY CHECKOUT SCRIPT
   // =====================================================
 
   useEffect(() => {
-    if (window.Razorpay) return;
+    if (window.Razorpay) {
+      setRazorpayLoaded(true);
+      return;
+    }
 
-    const existingScript = document.querySelector(
-      'script[src="https://checkout.razorpay.com/v1/checkout.js"]'
-    );
-
-    if (existingScript) return;
-
-    const script = document.createElement("script");
-
-    script.src =
+    const scriptUrl =
       "https://checkout.razorpay.com/v1/checkout.js";
 
-    script.async = true;
+    let script = document.querySelector(
+      `script[src="${scriptUrl}"]`
+    );
 
-    script.onload = () => {
-      console.log("Razorpay Checkout loaded successfully");
+    const handleLoad = () => {
+      if (window.Razorpay) {
+        setRazorpayLoaded(true);
+        setError("");
+        console.log("Razorpay Checkout loaded successfully");
+      } else {
+        setRazorpayLoaded(false);
+        setError(
+          "Razorpay script load hua, lekin checkout initialize nahi hua. Page refresh karein."
+        );
+      }
     };
 
-    script.onerror = () => {
-      console.error("Failed to load Razorpay Checkout");
-
+    const handleError = () => {
+      setRazorpayLoaded(false);
       setError(
-        "Unable to load payment gateway. Please check your internet connection and try again."
+        "Razorpay payment gateway load nahi ho raha. Internet connection check karke page refresh karein."
       );
     };
 
-    document.body.appendChild(script);
+    if (!script) {
+      script = document.createElement("script");
+      script.src = scriptUrl;
+      script.async = true;
+
+      script.addEventListener("load", handleLoad);
+      script.addEventListener("error", handleError);
+
+      document.body.appendChild(script);
+    } else {
+      script.addEventListener("load", handleLoad);
+      script.addEventListener("error", handleError);
+
+      // Script may already have finished loading
+      if (window.Razorpay) {
+        handleLoad();
+      }
+    }
+
+    return () => {
+      if (script) {
+        script.removeEventListener("load", handleLoad);
+        script.removeEventListener("error", handleError);
+      }
+    };
   }, []);
 
   // =====================================================
@@ -80,7 +112,7 @@ const Cart = () => {
   const updateQuantity = (id, change) => {
     const updatedCart = cartItems
       .map((item) => {
-        if (item._id === id) {
+        if (String(item._id) === String(id)) {
           const newQuantity =
             Number(item.quantity || 0) + change;
 
@@ -92,7 +124,7 @@ const Cart = () => {
 
         return item;
       })
-      .filter((item) => item.quantity > 0);
+      .filter((item) => Number(item.quantity) > 0);
 
     setCartItems(updatedCart);
 
@@ -110,7 +142,7 @@ const Cart = () => {
 
   const removeItem = (id) => {
     const updatedCart = cartItems.filter(
-      (item) => item._id !== id
+      (item) => String(item._id) !== String(id)
     );
 
     setCartItems(updatedCart);
@@ -124,7 +156,7 @@ const Cart = () => {
   };
 
   // =====================================================
-  // TOTAL
+  // TOTAL AMOUNT
   // =====================================================
 
   const totalAmount = cartItems.reduce(
@@ -137,8 +169,14 @@ const Cart = () => {
     0
   );
 
+  const totalItems = cartItems.reduce(
+    (total, item) =>
+      total + Number(item.quantity || 0),
+    0
+  );
+
   // =====================================================
-  // VERIFY PAYMENT
+  // VERIFY PAYMENT WITH BACKEND
   // =====================================================
 
   const verifyPayment = async (paymentResponse) => {
@@ -147,7 +185,7 @@ const Cart = () => {
 
       if (!token) {
         throw new Error(
-          "Student login session expired. Please login again."
+          "Login session expire ho gaya. Please login again."
         );
       }
 
@@ -155,12 +193,10 @@ const Cart = () => {
         `${API_URL}/payment/verify`,
         {
           method: "POST",
-
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-
           body: JSON.stringify({
             razorpay_order_id:
               paymentResponse.razorpay_order_id,
@@ -176,6 +212,8 @@ const Cart = () => {
 
       const data = await response.json();
 
+      console.log("Payment verification response:", data);
+
       if (!response.ok) {
         throw new Error(
           data?.message ||
@@ -184,35 +222,37 @@ const Cart = () => {
         );
       }
 
-      if (!data?.order) {
+      if (!data.order) {
         throw new Error(
-          "Payment verified but order information was not received."
+          "Payment response mein order details nahi mili. My Orders mein status check karein."
         );
       }
 
+      // -----------------------------------------------
+      // PAYMENT VERIFIED - SAVE SUCCESS STATE
+      // -----------------------------------------------
+
       setOrderSuccess(data.order);
 
+      setError("");
+
+      // Clear cart only after backend confirms order
       localStorage.removeItem("cart");
 
       setCartItems([]);
 
-      window.dispatchEvent(
-        new Event("cartUpdated")
-      );
+      window.dispatchEvent(new Event("cartUpdated"));
 
-      setError("");
-
-    } catch (error) {
-      console.error(
-        "Payment verification error:",
-        error
-      );
+      return true;
+    } catch (err) {
+      console.error("Payment verification error:", err);
 
       setError(
-        error.message ||
-          "Payment verification failed. Please contact the canteen administrator if money was deducted."
+        err.message ||
+          "Payment verification failed. Agar paise deduct hue hain, My Orders aur Razorpay payment status check karein."
       );
 
+      return false;
     } finally {
       setPaymentLoading(false);
       setPlacingOrder(false);
@@ -220,19 +260,36 @@ const Cart = () => {
   };
 
   // =====================================================
-  // OPEN RAZORPAY
+  // OPEN RAZORPAY CHECKOUT
   // =====================================================
 
   const openRazorpayCheckout = (paymentData) => {
+    let paymentCompleted = false;
+    let verificationStarted = false;
+
     try {
       if (!window.Razorpay) {
         setError(
-          "Razorpay payment gateway is not loaded. Please refresh the page and try again."
+          "Razorpay load nahi hua. Page refresh karke dobara try karein."
         );
 
         setPaymentLoading(false);
         setPlacingOrder(false);
+        return;
+      }
 
+      if (
+        !paymentData ||
+        !paymentData.keyId ||
+        !paymentData.razorpayOrderId ||
+        !paymentData.amountInPaise
+      ) {
+        setError(
+          "Backend se Razorpay payment details incomplete mili hain."
+        );
+
+        setPaymentLoading(false);
+        setPlacingOrder(false);
         return;
       }
 
@@ -245,37 +302,91 @@ const Cart = () => {
 
         order_id: paymentData.razorpayOrderId,
 
-        name: "Smart Canteen",
+        name: "Campus Bite",
 
-        description: "Smart Canteen Food Order",
+        description:
+          "Digital Food Ordering & Service Platform",
 
         prefill: {
-          name: paymentData.studentName,
-          email: paymentData.studentEmail,
+          name: paymentData.studentName || "",
+          email: paymentData.studentEmail || "",
+        },
+
+        notes: {
+          platform: "Campus Bite",
         },
 
         theme: {
           color: "#0d6efd",
         },
 
+        // ---------------------------------------------
+        // PAYMENT SUCCESS HANDLER
+        // ---------------------------------------------
+
         handler: async function (response) {
-          await verifyPayment(response);
+          if (verificationStarted) {
+            return;
+          }
+
+          verificationStarted = true;
+
+          console.log(
+            "Razorpay payment response:",
+            response
+          );
+
+          // Keep loading until backend verification completes
+          setPaymentLoading(true);
+          setPlacingOrder(true);
+          setError("");
+
+          const verified = await verifyPayment(response);
+
+          if (verified) {
+            paymentCompleted = true;
+
+            // Close checkout only after successful verification
+            try {
+              razorpay.close();
+            } catch (closeError) {
+              console.log(
+                "Checkout close message:",
+                closeError.message
+              );
+            }
+          } else {
+            // Backend verification failed.
+            // Do not clear cart or show success.
+            console.error(
+              "Backend could not verify payment."
+            );
+          }
         },
+
+        // ---------------------------------------------
+        // PAYMENT WINDOW CLOSED
+        // ---------------------------------------------
 
         modal: {
           ondismiss: function () {
-            setPaymentLoading(false);
-            setPlacingOrder(false);
+            if (!paymentCompleted && !verificationStarted) {
+              setPaymentLoading(false);
+              setPlacingOrder(false);
 
-            setError(
-              "Payment was cancelled or the payment window was closed."
-            );
+              setError(
+                "Payment window close ho gayi. Agar payment deduct hua hai, My Orders aur payment status check karein."
+              );
+            }
           },
         },
       };
 
-      const razorpay =
-        new window.Razorpay(options);
+      const razorpay = new window.Razorpay(options);
+
+      // -----------------------------------------------
+      // PAYMENT FAILURE HANDLER
+      // -----------------------------------------------
 
       razorpay.on(
         "payment.failed",
@@ -290,22 +401,23 @@ const Cart = () => {
 
           setError(
             response?.error?.description ||
-              "Payment failed. Please try again."
+              response?.error?.reason ||
+              "Payment fail ho gaya. Please dobara try karein."
           );
         }
       );
 
-      razorpay.open();
+      // -----------------------------------------------
+      // OPEN CHECKOUT
+      // -----------------------------------------------
 
-    } catch (error) {
-      console.error(
-        "Razorpay checkout error:",
-        error
-      );
+      razorpay.open();
+    } catch (err) {
+      console.error("Razorpay checkout error:", err);
 
       setError(
-        error.message ||
-          "Unable to open Razorpay payment window."
+        err.message ||
+          "Razorpay checkout open nahi ho paya."
       );
 
       setPaymentLoading(false);
@@ -331,48 +443,54 @@ const Cart = () => {
 
       if (!token) {
         setError(
-          "Please login as a student before making payment."
+          "Online payment ke liye pehle student login karein."
         );
-
         return;
       }
+
+      // -----------------------------------------------
+      // VALIDATE CART ITEMS
+      // -----------------------------------------------
 
       const invalidItem = cartItems.find(
         (item) =>
           !item._id ||
           !item.name ||
+          !Number.isInteger(Number(item.quantity)) ||
           Number(item.quantity) <= 0 ||
+          !Number.isFinite(Number(item.price)) ||
           Number(item.price) < 0
       );
 
       if (invalidItem) {
         setError(
-          "Some cart item is invalid. Please remove it and add it again from the menu."
+          "Cart mein koi invalid item hai. Us item ko remove karke menu se dobara add karein."
         );
-
         return;
       }
 
-      if (
-        placingOrder ||
-        paymentLoading
-      ) {
+      if (totalAmount <= 0) {
+        setError("Order amount valid nahi hai.");
+        return;
+      }
+
+      if (placingOrder || paymentLoading) {
+        return;
+      }
+
+      if (!window.Razorpay) {
+        setError(
+          "Razorpay abhi load ho raha hai. Kuch seconds wait karke dobara try karein."
+        );
         return;
       }
 
       setPlacingOrder(true);
       setPaymentLoading(true);
 
-      if (!window.Razorpay) {
-        setError(
-          "Payment gateway is still loading. Please wait a moment and try again."
-        );
-
-        setPaymentLoading(false);
-        setPlacingOrder(false);
-
-        return;
-      }
+      // -----------------------------------------------
+      // CREATE PAYMENT ORDER ON BACKEND
+      // -----------------------------------------------
 
       const paymentData = {
         items: cartItems.map((item) => ({
@@ -385,56 +503,47 @@ const Cart = () => {
         `${API_URL}/payment/create-order`,
         {
           method: "POST",
-
           headers: {
             "Content-Type": "application/json",
-
             Authorization: `Bearer ${token}`,
           },
-
           body: JSON.stringify(paymentData),
         }
       );
 
       const data = await response.json();
 
+      console.log("Create payment order response:", data);
+
       if (!response.ok) {
-        setError(
+        throw new Error(
           data?.message ||
             data?.error ||
-            "Unable to create payment order."
+            "Backend payment order create nahi kar paya."
         );
-
-        setPaymentLoading(false);
-        setPlacingOrder(false);
-
-        return;
       }
 
-      if (!data?.payment) {
-        setError(
-          "Payment order was created but payment information was not received."
+      if (
+        !data.payment ||
+        !data.payment.razorpayOrderId ||
+        !data.payment.keyId
+      ) {
+        throw new Error(
+          "Backend se Razorpay order ID ya Key ID nahi mili."
         );
-
-        setPaymentLoading(false);
-        setPlacingOrder(false);
-
-        return;
       }
 
-      openRazorpayCheckout(
-        data.payment
-      );
+      // -----------------------------------------------
+      // OPEN RAZORPAY CHECKOUT
+      // -----------------------------------------------
 
-    } catch (error) {
-      console.error(
-        "Start payment error:",
-        error
-      );
+      openRazorpayCheckout(data.payment);
+    } catch (err) {
+      console.error("Start payment error:", err);
 
       setError(
-        error.message ||
-          "Something went wrong while starting the payment."
+        err.message ||
+          "Payment start karte waqt error aa gaya."
       );
 
       setPaymentLoading(false);
@@ -443,7 +552,7 @@ const Cart = () => {
   };
 
   // =====================================================
-  // RETURN
+  // RETURN UI
   // =====================================================
 
   return (
@@ -454,10 +563,9 @@ const Cart = () => {
         paddingBottom: "60px",
       }}
     >
-
-      {/* ================================================= */}
+      {/* =============================================== */}
       {/* PAGE HEADER */}
-      {/* ================================================= */}
+      {/* =============================================== */}
 
       <section
         style={{
@@ -466,13 +574,9 @@ const Cart = () => {
           color: "#fff",
         }}
       >
-
         <div className="container py-5">
-
           <div className="row align-items-center">
-
             <div className="col-lg-8">
-
               <span className="badge bg-warning text-dark px-3 py-2 mb-3">
                 🛒 ORDER SUMMARY
               </span>
@@ -492,11 +596,9 @@ const Cart = () => {
                 choose quantities and complete your
                 secure online payment.
               </p>
-
             </div>
 
             <div className="col-lg-4 text-center mt-4 mt-lg-0">
-
               <div
                 style={{
                   fontSize: "80px",
@@ -505,27 +607,21 @@ const Cart = () => {
               >
                 🛒
               </div>
-
             </div>
-
           </div>
-
         </div>
-
       </section>
 
-      {/* ================================================= */}
+      {/* =============================================== */}
       {/* MAIN */}
-      {/* ================================================= */}
+      {/* =============================================== */}
 
       <div className="container py-5">
-
-        {/* ================================================= */}
-        {/* SUCCESS */}
-        {/* ================================================= */}
+        {/* ============================================= */}
+        {/* SUCCESS CARD */}
+        {/* ============================================= */}
 
         {orderSuccess && (
-
           <div
             className="card mb-4"
             style={{
@@ -533,16 +629,9 @@ const Cart = () => {
               background: "#f3fff7",
             }}
           >
-
             <div className="card-body p-4 p-md-5">
-
               <div className="text-center mb-4">
-
-                <div
-                  style={{
-                    fontSize: "65px",
-                  }}
-                >
+                <div style={{ fontSize: "65px" }}>
                   🎉
                 </div>
 
@@ -554,73 +643,55 @@ const Cart = () => {
                   Your food order has been successfully
                   placed.
                 </p>
-
               </div>
 
               <div className="row g-3 text-center">
-
                 <div className="col-md-4">
-
                   <div className="p-3 rounded bg-white border">
-
                     <small className="text-muted">
                       Order ID
                     </small>
 
                     <div className="fw-bold mt-1">
-                      {orderSuccess.orderId}
+                      {orderSuccess.orderId || "N/A"}
                     </div>
-
                   </div>
-
                 </div>
 
                 <div className="col-md-4">
-
                   <div className="p-3 rounded bg-white border">
-
                     <small className="text-muted">
                       Token Number
                     </small>
 
                     <div
                       className="fw-bold text-primary"
-                      style={{
-                        fontSize: "28px",
-                      }}
+                      style={{ fontSize: "28px" }}
                     >
-                      #{orderSuccess.tokenNumber}
+                      #{orderSuccess.tokenNumber ?? "N/A"}
                     </div>
-
                   </div>
-
                 </div>
 
                 <div className="col-md-4">
-
                   <div className="p-3 rounded bg-white border">
-
                     <small className="text-muted">
                       Order Status
                     </small>
 
                     <div className="mt-2">
                       <span className="badge bg-warning text-dark px-3 py-2">
-                        ⏳ {orderSuccess.status}
+                        ⏳ {orderSuccess.status || "Pending"}
                       </span>
                     </div>
-
                   </div>
-
                 </div>
-
               </div>
 
               <div className="text-center mt-4">
-
                 <p className="text-muted">
-                  Confirmation email has been sent to
-                  your registered email address.
+                  Your order has been confirmed. You can
+                  track its status from My Orders.
                 </p>
 
                 <Link
@@ -629,104 +700,76 @@ const Cart = () => {
                 >
                   📦 Track My Order →
                 </Link>
-
               </div>
-
             </div>
-
           </div>
-
         )}
 
-        {/* ================================================= */}
-        {/* ERROR */}
-        {/* ================================================= */}
+        {/* ============================================= */}
+        {/* ERROR MESSAGE */}
+        {/* ============================================= */}
 
         {error && (
+          <div
+            className="alert alert-danger mb-4"
+            role="alert"
+          >
+            <strong>⚠️ Payment Error</strong>
 
-          <div className="alert alert-danger mb-4">
-
-            <strong>
-              ⚠️ Payment Error
-            </strong>
-
-            <div className="mt-1">
-              {error}
-            </div>
-
+            <div className="mt-1">{error}</div>
           </div>
-
         )}
 
-        {/* ================================================= */}
+        {/* ============================================= */}
         {/* EMPTY CART */}
-        {/* ================================================= */}
+        {/* ============================================= */}
 
-        {cartItems.length === 0 &&
-          !orderSuccess && (
-
-            <div className="card">
-
-              <div className="card-body text-center py-5">
-
-                <div
-                  style={{
-                    fontSize: "75px",
-                  }}
-                >
-                  🛒
-                </div>
-
-                <h3 className="fw-bold mt-3">
-                  Your Cart is Empty
-                </h3>
-
-                <p className="text-muted">
-                  You haven't added any food items yet.
-                </p>
-
-                <Link
-                  to="/canteen-menu"
-                  className="btn btn-primary btn-lg px-4"
-                >
-                  🍔 Browse Canteen Menu
-                </Link>
-
+        {cartItems.length === 0 && !orderSuccess && (
+          <div className="card">
+            <div className="card-body text-center py-5">
+              <div style={{ fontSize: "75px" }}>
+                🛒
               </div>
 
+              <h3 className="fw-bold mt-3">
+                Your Cart is Empty
+              </h3>
+
+              <p className="text-muted">
+                You haven't added any food items yet.
+              </p>
+
+              <Link
+                to="/canteen-menu"
+                className="btn btn-primary btn-lg px-4"
+              >
+                🍔 Browse Canteen Menu
+              </Link>
             </div>
+          </div>
+        )}
 
-          )}
-
-        {/* ================================================= */}
-        {/* CART */}
-        {/* ================================================= */}
+        {/* ============================================= */}
+        {/* CART ITEMS AND ORDER SUMMARY */}
+        {/* ============================================= */}
 
         {cartItems.length > 0 && (
-
           <div className="row g-4">
-
-            {/* ================================================= */}
+            {/* ========================================= */}
             {/* CART ITEMS */}
-            {/* ================================================= */}
+            {/* ========================================= */}
 
             <div className="col-lg-8">
-
               <div className="d-flex justify-content-between align-items-center mb-3">
-
                 <div>
-
                   <h4 className="fw-bold mb-1">
                     Selected Items
                   </h4>
 
                   <p className="text-muted mb-0">
                     {cartItems.length} item type
-                    {cartItems.length !== 1
-                      ? "s"
-                      : ""}
+                    {cartItems.length !== 1 ? "s" : ""}
                   </p>
-
                 </div>
 
                 <Link
@@ -735,24 +778,18 @@ const Cart = () => {
                 >
                   + Add More
                 </Link>
-
               </div>
 
               {cartItems.map((item) => (
-
                 <div
                   className="card mb-3"
                   key={item._id}
                 >
-
                   <div className="card-body p-3 p-md-4">
-
                     <div className="row align-items-center g-3">
-
                       {/* IMAGE */}
 
                       <div className="col-4 col-md-3">
-
                         <div
                           style={{
                             height: "110px",
@@ -764,9 +801,7 @@ const Cart = () => {
                             justifyContent: "center",
                           }}
                         >
-
                           {item.imageUrl ? (
-
                             <img
                               src={item.imageUrl}
                               alt={item.name}
@@ -776,27 +811,17 @@ const Cart = () => {
                                 objectFit: "cover",
                               }}
                             />
-
                           ) : (
-
-                            <span
-                              style={{
-                                fontSize: "45px",
-                              }}
-                            >
+                            <span style={{ fontSize: "45px" }}>
                               🍽️
                             </span>
-
                           )}
-
                         </div>
-
                       </div>
 
                       {/* DETAILS */}
 
                       <div className="col-8 col-md-4">
-
                         <h5 className="fw-bold mb-1">
                           {item.name}
                         </h5>
@@ -806,7 +831,6 @@ const Cart = () => {
                         </span>
 
                         <div className="mt-2">
-
                           <span className="fw-bold text-success">
                             ₹{item.price}
                           </span>
@@ -814,15 +838,12 @@ const Cart = () => {
                           <small className="text-muted">
                             {" "}per item
                           </small>
-
                         </div>
-
                       </div>
 
                       {/* QUANTITY */}
 
                       <div className="col-6 col-md-3">
-
                         <small className="text-muted d-block mb-1">
                           Quantity
                         </small>
@@ -830,13 +851,11 @@ const Cart = () => {
                         <div
                           className="d-inline-flex align-items-center"
                           style={{
-                            border:
-                              "1px solid #dce3ec",
+                            border: "1px solid #dce3ec",
                             borderRadius: "10px",
                             overflow: "hidden",
                           }}
                         >
-
                           <button
                             type="button"
                             className="btn btn-light"
@@ -845,14 +864,10 @@ const Cart = () => {
                               fontSize: "20px",
                             }}
                             onClick={() =>
-                              updateQuantity(
-                                item._id,
-                                -1
-                              )
+                              updateQuantity(item._id, -1)
                             }
                             disabled={
-                              placingOrder ||
-                              paymentLoading
+                              placingOrder || paymentLoading
                             }
                           >
                             −
@@ -876,37 +891,28 @@ const Cart = () => {
                               fontSize: "20px",
                             }}
                             onClick={() =>
-                              updateQuantity(
-                                item._id,
-                                1
-                              )
+                              updateQuantity(item._id, 1)
                             }
                             disabled={
-                              placingOrder ||
-                              paymentLoading
+                              placingOrder || paymentLoading
                             }
                           >
                             +
                           </button>
-
                         </div>
-
                       </div>
 
                       {/* SUBTOTAL */}
 
                       <div className="col-6 col-md-2 text-md-end">
-
                         <small className="text-muted d-block">
                           Subtotal
                         </small>
 
                         <strong className="text-success fs-5">
-
                           ₹
                           {Number(item.price) *
                             Number(item.quantity)}
-
                         </strong>
 
                         <button
@@ -916,31 +922,23 @@ const Cart = () => {
                             removeItem(item._id)
                           }
                           disabled={
-                            placingOrder ||
-                            paymentLoading
+                            placingOrder || paymentLoading
                           }
                         >
                           🗑️ Remove
                         </button>
-
                       </div>
-
                     </div>
-
                   </div>
-
                 </div>
-
               ))}
-
             </div>
 
-            {/* ================================================= */}
+            {/* ========================================= */}
             {/* ORDER SUMMARY */}
-            {/* ================================================= */}
+            {/* ========================================= */}
 
             <div className="col-lg-4">
-
               <div
                 className="card"
                 style={{
@@ -948,46 +946,28 @@ const Cart = () => {
                   top: "90px",
                 }}
               >
-
                 <div className="card-body p-4">
-
                   <h4 className="fw-bold mb-4">
                     Order Summary
                   </h4>
 
                   <div className="d-flex justify-content-between mb-3">
-
                     <span className="text-muted">
                       Items
                     </span>
 
-                    <strong>
-                      {cartItems.reduce(
-                        (total, item) =>
-                          total +
-                          Number(
-                            item.quantity || 0
-                          ),
-                        0
-                      )}
-                    </strong>
-
+                    <strong>{totalItems}</strong>
                   </div>
 
                   <div className="d-flex justify-content-between mb-3">
-
                     <span className="text-muted">
                       Subtotal
                     </span>
 
-                    <strong>
-                      ₹{totalAmount}
-                    </strong>
-
+                    <strong>₹{totalAmount}</strong>
                   </div>
 
                   <div className="d-flex justify-content-between mb-3">
-
                     <span className="text-muted">
                       Payment
                     </span>
@@ -995,26 +975,21 @@ const Cart = () => {
                     <span className="badge bg-success">
                       Online
                     </span>
-
                   </div>
 
                   <hr />
 
                   <div className="d-flex justify-content-between align-items-center mb-4">
-
                     <span className="fw-bold">
                       Total Amount
                     </span>
 
                     <span
                       className="fw-bold text-success"
-                      style={{
-                        fontSize: "25px",
-                      }}
+                      style={{ fontSize: "25px" }}
                     >
                       ₹{totalAmount}
                     </span>
-
                   </div>
 
                   {/* PAYMENT INFO */}
@@ -1023,35 +998,22 @@ const Cart = () => {
                     className="p-3 rounded mb-3"
                     style={{
                       background: "#f4f8ff",
-                      border:
-                        "1px solid #dbe8ff",
+                      border: "1px solid #dbe8ff",
                     }}
                   >
-
                     <div className="d-flex">
-
-                      <div
-                        style={{
-                          fontSize: "25px",
-                        }}
-                      >
+                      <div style={{ fontSize: "25px" }}>
                         🔒
                       </div>
 
                       <div className="ms-2">
-
-                        <strong>
-                          Secure Payment
-                        </strong>
+                        <strong>Secure Payment</strong>
 
                         <div className="small text-muted mt-1">
                           Powered by Razorpay Test Mode.
                         </div>
-
                       </div>
-
                     </div>
-
                   </div>
 
                   {/* PAY BUTTON */}
@@ -1062,49 +1024,37 @@ const Cart = () => {
                     onClick={startPayment}
                     disabled={
                       placingOrder ||
-                      paymentLoading
+                      paymentLoading ||
+                      !razorpayLoaded
                     }
                   >
-
-                    {placingOrder ||
-                    paymentLoading ? (
-
+                    {placingOrder || paymentLoading ? (
                       <>
                         <span
                           className="spinner-border spinner-border-sm me-2"
                           role="status"
-                        ></span>
+                          aria-hidden="true"
+                        />
 
                         Processing Payment...
                       </>
-
+                    ) : !razorpayLoaded ? (
+                      "Loading Payment Gateway..."
                     ) : (
-
-                      <>
-                        💳 Pay ₹{totalAmount}
-                      </>
-
+                      <>💳 Pay ₹{totalAmount}</>
                     )}
-
                   </button>
 
                   <small className="text-muted d-block text-center mt-3">
                     By continuing, you agree to place
                     this food order.
                   </small>
-
                 </div>
-
               </div>
-
             </div>
-
           </div>
-
         )}
-
       </div>
-
     </div>
   );
 };
