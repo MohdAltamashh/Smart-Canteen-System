@@ -6,23 +6,43 @@ const User = require("../models/User");
 const RegistrationOTP = require("../models/RegistrationOTP");
 
 // ==========================================
-// GMAIL API CONFIGURATION (NO SMTP)
+// GMAIL API CONFIGURATION
 // ==========================================
 
-const oauth2Client = new google.auth.OAuth2(
-    process.env.GMAIL_CLIENT_ID,
-    process.env.GMAIL_CLIENT_SECRET,
-    "https://developers.google.com/oauthplayground"
-);
+const createGmailClient = () => {
+    const {
+        GMAIL_CLIENT_ID,
+        GMAIL_CLIENT_SECRET,
+        GMAIL_REFRESH_TOKEN,
+        EMAIL_USER
+    } = process.env;
 
-oauth2Client.setCredentials({
-    refresh_token: process.env.GMAIL_REFRESH_TOKEN
-});
+    if (
+        !GMAIL_CLIENT_ID ||
+        !GMAIL_CLIENT_SECRET ||
+        !GMAIL_REFRESH_TOKEN ||
+        !EMAIL_USER
+    ) {
+        throw new Error(
+            "Missing Gmail API environment variables. Check Render Environment."
+        );
+    }
 
-const gmail = google.gmail({
-    version: "v1",
-    auth: oauth2Client
-});
+    const oauth2Client = new google.auth.OAuth2(
+        GMAIL_CLIENT_ID,
+        GMAIL_CLIENT_SECRET,
+        "https://developers.google.com/oauthplayground"
+    );
+
+    oauth2Client.setCredentials({
+        refresh_token: GMAIL_REFRESH_TOKEN
+    });
+
+    return google.gmail({
+        version: "v1",
+        auth: oauth2Client
+    });
+};
 
 // ==========================================
 // SEND EMAIL USING GMAIL API
@@ -34,21 +54,15 @@ const sendOTPEmail = async (
     otp,
     isResend = false
 ) => {
-    if (
-        !process.env.GMAIL_CLIENT_ID ||
-        !process.env.GMAIL_CLIENT_SECRET ||
-        !process.env.GMAIL_REFRESH_TOKEN ||
-        !process.env.EMAIL_USER
-    ) {
-        throw new Error(
-            "Missing Gmail API environment variables in Render"
-        );
-    }
+    const gmail = createGmailClient();
+
+    const senderEmail = process.env.EMAIL_USER;
 
     const subject = isResend
         ? "Campus Bite - New Registration OTP"
         : "Campus Bite - Student Registration OTP";
 
+    // Escape user-provided name for HTML
     const safeName = String(name).replace(
         /[&<>"']/g,
         (char) => ({
@@ -61,33 +75,59 @@ const sendOTPEmail = async (
     );
 
     const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Campus Bite OTP</title>
+    </head>
+
+    <body style="
+        margin: 0;
+        padding: 20px;
+        background: #f4f6f9;
+        font-family: Arial, sans-serif;
+    ">
+
         <div style="
-            font-family: Arial, sans-serif;
-            max-width: 600px;
+            max-width: 550px;
             margin: auto;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 10px;
+            padding: 25px;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
         ">
-            <h2 style="text-align:center;">Campus Bite</h2>
+
+            <h2 style="
+                text-align: center;
+                color: #123c69;
+                margin-bottom: 10px;
+            ">
+                Campus Bite
+            </h2>
 
             <p>Hello <strong>${safeName}</strong>,</p>
 
             <p>
-                Your student registration verification OTP is:
+                Thank you for registering with Campus Bite.
+                Use the following OTP to verify your email address:
             </p>
 
             <div style="
+                margin: 25px 0;
+                padding: 20px;
                 text-align: center;
-                font-size: 32px;
-                font-weight: bold;
-                letter-spacing: 8px;
-                padding: 15px;
-                background: #f5f5f5;
-                border-radius: 8px;
-                margin: 20px 0;
+                background: #f0f5ff;
+                border-radius: 10px;
             ">
-                ${otp}
+                <span style="
+                    font-size: 32px;
+                    font-weight: bold;
+                    letter-spacing: 8px;
+                    color: #123c69;
+                ">
+                    ${otp}
+                </span>
             </div>
 
             <p>
@@ -96,36 +136,50 @@ const sendOTPEmail = async (
             </p>
 
             <p>
+                Do not share this OTP with anyone.
                 If you did not request this registration,
                 please ignore this email.
             </p>
 
-            <hr />
+            <hr style="
+                border: none;
+                border-top: 1px solid #eeeeee;
+                margin: 25px 0;
+            ">
 
             <p style="
-                font-size: 12px;
-                color: #777;
                 text-align: center;
+                font-size: 12px;
+                color: #777777;
             ">
                 Campus Bite - Digital Food Ordering & Service Platform
             </p>
+
         </div>
+
+    </body>
+    </html>
     `;
 
-    // Build an email message for the Gmail API
+    // Create MIME email
+    const encodedHtml = Buffer
+        .from(html, "utf-8")
+        .toString("base64");
+
     const messageParts = [
-        `From: "Campus Bite" <${process.env.EMAIL_USER}>`,
+        `From: "Campus Bite" <${senderEmail}>`,
         `To: ${to}`,
         `Subject: ${subject}`,
         "MIME-Version: 1.0",
-        "Content-Type: text/html; charset=UTF-8",
+        'Content-Type: text/html; charset="UTF-8"',
         "Content-Transfer-Encoding: base64",
         "",
-        Buffer.from(html, "utf-8").toString("base64")
+        encodedHtml
     ];
 
     const rawMessage = messageParts.join("\r\n");
 
+    // Gmail API requires Base64URL encoding
     const encodedMessage = Buffer
         .from(rawMessage, "utf-8")
         .toString("base64")
@@ -133,7 +187,6 @@ const sendOTPEmail = async (
         .replace(/\//g, "_")
         .replace(/=+$/, "");
 
-    // Send email using Gmail HTTPS API, not SMTP
     const response = await gmail.users.messages.send({
         userId: "me",
         requestBody: {
@@ -162,6 +215,7 @@ const sendRegistrationOTP = async (req, res) => {
             department
         } = req.body;
 
+        // Validate required fields
         if (!email || !password || !name || !department) {
             return res.status(400).json({
                 message: "All fields are required"
@@ -186,6 +240,13 @@ const sendRegistrationOTP = async (req, res) => {
             });
         }
 
+        if (!cleanName || !cleanDepartment) {
+            return res.status(400).json({
+                message: "Name and department are required"
+            });
+        }
+
+        // Check if user already exists
         const existingUser = await User.findOne({
             email: cleanEmail
         });
@@ -196,6 +257,7 @@ const sendRegistrationOTP = async (req, res) => {
             });
         }
 
+        // Generate 6-digit OTP
         const otp = crypto
             .randomInt(100000, 1000000)
             .toString();
@@ -204,15 +266,18 @@ const sendRegistrationOTP = async (req, res) => {
             Date.now() + 5 * 60 * 1000
         );
 
+        // Hash password before temporarily storing it
         const hashedPassword = await bcrypt.hash(
             password,
             10
         );
 
+        // Remove any previous registration OTP
         await RegistrationOTP.deleteMany({
             email: cleanEmail
         });
 
+        // Create registration OTP record
         const registrationOTP = new RegistrationOTP({
             email: cleanEmail,
             otp,
@@ -278,6 +343,7 @@ const verifyRegistrationOTP = async (req, res) => {
             });
         }
 
+        // Check expiry
         if (new Date() > registrationOTP.expiresAt) {
             await RegistrationOTP.deleteOne({
                 _id: registrationOTP._id
@@ -289,6 +355,7 @@ const verifyRegistrationOTP = async (req, res) => {
             });
         }
 
+        // Check OTP
         if (registrationOTP.otp !== cleanOTP) {
             return res.status(400).json({
                 message:
@@ -296,6 +363,7 @@ const verifyRegistrationOTP = async (req, res) => {
             });
         }
 
+        // Check duplicate user again
         const existingUser = await User.findOne({
             email: cleanEmail
         });
@@ -310,6 +378,7 @@ const verifyRegistrationOTP = async (req, res) => {
             });
         }
 
+        // Create student account
         const newUser = new User({
             email: registrationOTP.email,
             password: registrationOTP.password,
@@ -320,6 +389,7 @@ const verifyRegistrationOTP = async (req, res) => {
 
         await newUser.save();
 
+        // Remove OTP after successful registration
         await RegistrationOTP.deleteOne({
             _id: registrationOTP._id
         });
@@ -413,14 +483,17 @@ const resendRegistrationOTP = async (req, res) => {
             });
         }
 
+        // Generate new OTP
         const newOTP = crypto
             .randomInt(100000, 1000000)
             .toString();
 
         registrationOTP.otp = newOTP;
+
         registrationOTP.expiresAt = new Date(
             Date.now() + 5 * 60 * 1000
         );
+
         registrationOTP.createdAt = new Date();
 
         await registrationOTP.save();
@@ -453,7 +526,7 @@ const resendRegistrationOTP = async (req, res) => {
 };
 
 // ==========================================
-// EXPORT
+// EXPORT CONTROLLERS
 // ==========================================
 
 module.exports = {
