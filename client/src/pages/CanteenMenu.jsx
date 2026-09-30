@@ -497,7 +497,7 @@ const CanteenMenu = () => {
                   >
                     {item.imageUrl ? (
                       <img
-                        src={item.imageUrl}
+                       src={getImageUrl(item.imageUrl)}
                         alt={item.name}
                         loading="lazy"
                         style={{
