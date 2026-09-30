@@ -1405,11 +1405,13 @@ const AdminDashboard = () => {
                                 }}
                               />
                               <div
-                                className="food-image-fallback d-flex justify-content-center align-items-center bg-light"
+                                className="food-image-fallback bg-light"
                                 style={{
                                   height: 180,
                                   fontSize: 70,
                                   display: "none",
+                                  justifyContent: "center",
+                                  alignItems: "center",
                                 }}
                               >
                                 🍔
