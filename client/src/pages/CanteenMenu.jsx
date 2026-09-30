@@ -13,6 +13,32 @@ const API_URL =
   "http://localhost:5000/api";
 
 // =====================================================
+// IMAGE URL HELPER
+// =====================================================
+
+const getImageUrl = (imageUrl) => {
+  if (!imageUrl) {
+    return "";
+  }
+
+  // Already complete URL
+  if (
+    imageUrl.startsWith("http://") ||
+    imageUrl.startsWith("https://")
+  ) {
+    return imageUrl;
+  }
+
+  // Uploaded backend image
+  if (imageUrl.startsWith("/uploads/food/")) {
+    return `${API_URL}/food${imageUrl}`;
+  }
+
+  // Other relative image path
+  return `${API_URL}${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`;
+};
+
+// =====================================================
 // ADD TO CART
 // =====================================================
 
@@ -30,9 +56,9 @@ const addToCart = (item) => {
     updatedCart = existingCart.map((cartItem) =>
       cartItem._id === item._id
         ? {
-            ...cartItem,
-            quantity: Number(cartItem.quantity || 0) + 1,
-          }
+          ...cartItem,
+          quantity: Number(cartItem.quantity || 0) + 1,
+        }
         : cartItem
     );
   } else {
@@ -97,7 +123,7 @@ const CanteenMenu = () => {
 
         setError(
           err.response?.data?.message ||
-            "Food menu load nahi ho saka."
+          "Food menu load nahi ho saka."
         );
       } finally {
         setLoading(false);
@@ -395,11 +421,10 @@ const CanteenMenu = () => {
                   <button
                     key={cat}
                     type="button"
-                    className={`btn btn-sm ${
-                      category === cat
-                        ? "btn-primary"
-                        : "btn-outline-primary"
-                    }`}
+                    className={`btn btn-sm ${category === cat
+                      ? "btn-primary"
+                      : "btn-outline-primary"
+                      }`}
                     onClick={() =>
                       setCategory(cat)
                     }
@@ -463,14 +488,16 @@ const CanteenMenu = () => {
                   >
                     {item.imageUrl ? (
                       <img
-                        src={item.imageUrl}
+                        src={getImageUrl(item.imageUrl)}
                         alt={item.name}
                         style={{
                           width: "100%",
                           height: "100%",
                           objectFit: "cover",
-                          transition:
-                            "transform 0.4s ease",
+                          transition: "transform 0.4s ease",
+                        }}
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
                         }}
                       />
                     ) : (
@@ -561,11 +588,10 @@ const CanteenMenu = () => {
 
                         <button
                           type="button"
-                          className={`btn ${
-                            addedItem === item._id
-                              ? "btn-success"
-                              : "btn-primary"
-                          }`}
+                          className={`btn ${addedItem === item._id
+                            ? "btn-success"
+                            : "btn-primary"
+                            }`}
                           onClick={() =>
                             handleAddToCart(
                               item
@@ -573,7 +599,7 @@ const CanteenMenu = () => {
                           }
                         >
                           {addedItem ===
-                          item._id
+                            item._id
                             ? "✓ Added"
                             : "🛒 Add to Cart"}
                         </button>

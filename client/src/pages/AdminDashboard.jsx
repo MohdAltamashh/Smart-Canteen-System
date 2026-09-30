@@ -148,6 +148,50 @@ const AdminDashboard = () => {
   }, [getToken]);
 
   // =====================================================
+  // FOOD IMAGE URL
+  // =====================================================
+
+  const getFoodImageUrl = useCallback((imageUrl) => {
+    if (!imageUrl) {
+      return "";
+    }
+
+    const value = String(imageUrl).trim();
+
+    if (!value) {
+      return "";
+    }
+
+    // Keep already complete URLs.
+    if (/^https?:\/\//i.test(value)) {
+      // Convert old localhost URLs to the current API host.
+      if (value.includes("localhost:5000")) {
+        const baseUrl = String(API || "").replace(/\/api\/?$/, "");
+        if (baseUrl) {
+          try {
+            const parsed = new URL(value);
+            return `${baseUrl}${parsed.pathname}${parsed.search}`;
+          } catch (e) {
+            return value;
+          }
+        }
+      }
+
+      return value;
+    }
+
+    const baseUrl = String(API || "").replace(/\/api\/?$/, "");
+
+    if (!baseUrl) {
+      return value;
+    }
+
+    return value.startsWith("/")
+      ? `${baseUrl}${value}`
+      : `${baseUrl}/${value}`;
+  }, []);
+
+  // =====================================================
   // FETCH FOOD
   // =====================================================
 
@@ -1336,20 +1380,41 @@ const AdminDashboard = () => {
                         >
                           <div className="card h-100 border shadow-sm">
                             {item.imageUrl ? (
+                              <>
                               <img
                                 src={
-                                  item.imageUrl
+                                  getFoodImageUrl(item.imageUrl)
                                 }
                                 alt={
                                   item.name
                                 }
                                 className="card-img-top"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = "none";
+                                  const fallback = e.currentTarget.parentElement?.querySelector(
+                                    ".food-image-fallback"
+                                  );
+                                  if (fallback) {
+                                    fallback.style.display = "flex";
+                                  }
+                                }}
                                 style={{
                                   height: 180,
                                   objectFit:
                                     "cover",
                                 }}
                               />
+                              <div
+                                className="food-image-fallback d-flex justify-content-center align-items-center bg-light"
+                                style={{
+                                  height: 180,
+                                  fontSize: 70,
+                                  display: "none",
+                                }}
+                              >
+                                🍔
+                              </div>
+                              </>
                             ) : (
                               <div
                                 className="d-flex justify-content-center align-items-center bg-light"

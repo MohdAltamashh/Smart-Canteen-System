@@ -83,6 +83,15 @@ const upload = multer({
 });
 
 // =====================================================
+// SERVE FOOD IMAGES
+// =====================================================
+
+router.use(
+  "/uploads/food",
+  express.static(uploadDir)
+);
+
+// =====================================================
 // GET ALL FOOD ITEMS
 // =====================================================
 
@@ -141,7 +150,7 @@ router.post(
           isAvailable === undefined
             ? true
             : isAvailable === "true" ||
-              isAvailable === true,
+            isAvailable === true,
       });
 
       const savedFoodItem =
@@ -224,7 +233,7 @@ router.put(
           isAvailable === undefined
             ? existingFoodItem.isAvailable
             : isAvailable === "true" ||
-              isAvailable === true,
+            isAvailable === true,
       };
 
       // =================================================

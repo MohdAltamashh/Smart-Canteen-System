@@ -5,6 +5,29 @@ const API_URL =
   process.env.REACT_APP_API_URL ||
   "http://localhost:5000/api";
 
+// =====================================================
+// IMAGE URL HELPER
+// =====================================================
+
+const getCartImageUrl = (imageUrl) => {
+  if (!imageUrl) {
+    return "";
+  }
+
+  if (
+    imageUrl.startsWith("http://") ||
+    imageUrl.startsWith("https://")
+  ) {
+    return imageUrl;
+  }
+
+  if (imageUrl.startsWith("/uploads/food/")) {
+    return `${API_URL}/food${imageUrl}`;
+  }
+
+  return `${API_URL}${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`;
+};
+
 const Cart = () => {
   const [cartItems, setCartItems] = useState([]);
   const [placingOrder, setPlacingOrder] = useState(false);
@@ -217,8 +240,8 @@ const Cart = () => {
       if (!response.ok) {
         throw new Error(
           data?.message ||
-            data?.error ||
-            "Payment verification failed."
+          data?.error ||
+          "Payment verification failed."
         );
       }
 
@@ -249,7 +272,7 @@ const Cart = () => {
 
       setError(
         err.message ||
-          "Payment verification failed. Agar paise deduct hue hain, My Orders aur Razorpay payment status check karein."
+        "Payment verification failed. Agar paise deduct hue hain, My Orders aur Razorpay payment status check karein."
       );
 
       return false;
@@ -401,8 +424,8 @@ const Cart = () => {
 
           setError(
             response?.error?.description ||
-              response?.error?.reason ||
-              "Payment fail ho gaya. Please dobara try karein."
+            response?.error?.reason ||
+            "Payment fail ho gaya. Please dobara try karein."
           );
         }
       );
@@ -417,7 +440,7 @@ const Cart = () => {
 
       setError(
         err.message ||
-          "Razorpay checkout open nahi ho paya."
+        "Razorpay checkout open nahi ho paya."
       );
 
       setPaymentLoading(false);
@@ -518,8 +541,8 @@ const Cart = () => {
       if (!response.ok) {
         throw new Error(
           data?.message ||
-            data?.error ||
-            "Backend payment order create nahi kar paya."
+          data?.error ||
+          "Backend payment order create nahi kar paya."
         );
       }
 
@@ -543,7 +566,7 @@ const Cart = () => {
 
       setError(
         err.message ||
-          "Payment start karte waqt error aa gaya."
+        "Payment start karte waqt error aa gaya."
       );
 
       setPaymentLoading(false);
@@ -803,7 +826,7 @@ const Cart = () => {
                         >
                           {item.imageUrl ? (
                             <img
-                              src={item.imageUrl}
+                              src={getCartImageUrl(item.imageUrl)}
                               alt={item.name}
                               style={{
                                 width: "100%",
