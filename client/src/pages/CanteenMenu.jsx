@@ -475,44 +475,69 @@ const CanteenMenu = () => {
                 className="col-sm-6 col-lg-4"
                 key={item._id}
               >
-                <div className="card h-100 overflow-hidden">
+                <div
+                  className="card h-100 overflow-hidden"
+                  style={{
+                    border: "none",
+                    borderRadius: "16px",
+                    boxShadow: "0 5px 20px rgba(0,0,0,0.08)",
+                    background: "#fff",
+                  }}
+                >
                   {/* FOOD IMAGE */}
 
                   <div
                     style={{
-                      height: "220px",
-                      background: "#eef2f7",
+                      width: "100%",
+                      height: "240px",
+                      background: "#f1f3f5",
                       position: "relative",
                       overflow: "hidden",
                     }}
                   >
                     {item.imageUrl ? (
                       <img
-                        src={getImageUrl(item.imageUrl)}
+                        src={item.imageUrl}
                         alt={item.name}
+                        loading="lazy"
                         style={{
                           width: "100%",
                           height: "100%",
                           objectFit: "cover",
-                          transition: "transform 0.4s ease",
+                          objectPosition: "center",
+                          display: "block",
                         }}
                         onError={(e) => {
                           e.currentTarget.style.display = "none";
+
+                          const fallback =
+                            e.currentTarget.parentElement?.querySelector(
+                              ".food-image-fallback"
+                            );
+
+                          if (fallback) {
+                            fallback.style.display = "flex";
+                          }
                         }}
                       />
-                    ) : (
-                      <div
-                        style={{
-                          height: "100%",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "75px",
-                        }}
-                      >
-                        🍽️
-                      </div>
-                    )}
+                    ) : null}
+
+                    {/* IMAGE FALLBACK */}
+
+                    <div
+                      className="food-image-fallback"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        display: item.imageUrl ? "none" : "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "75px",
+                        background: "#f1f3f5",
+                      }}
+                    >
+                      🍽️
+                    </div>
 
                     {/* AVAILABLE BADGE */}
 
@@ -523,6 +548,8 @@ const CanteenMenu = () => {
                         top: "12px",
                         left: "12px",
                         padding: "7px 10px",
+                        fontSize: "13px",
+                        borderRadius: "8px",
                       }}
                     >
                       ✓ Available
