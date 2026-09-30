@@ -1380,50 +1380,59 @@ const AdminDashboard = () => {
                         >
                           <div className="card h-100 border shadow-sm">
                             {item.imageUrl ? (
-                              <>
+                              <div
+                                style={{
+                                  width: "100%",
+                                  height: "240px",
+                                  overflow: "hidden",
+                                  backgroundColor: "#f1f3f5",
+                                  position: "relative",
+                                }}
+                              >
                                 <img
-                                  src={
-                                    getFoodImageUrl(item.imageUrl)
-                                  }
-                                  alt={
-                                    item.name
-                                  }
-                                  className="card-img-top"
+                                  src={getFoodImageUrl(item.imageUrl)}
+                                  alt={item.name || "Food"}
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    display: "block",
+                                    objectFit: "cover",
+                                    objectPosition: "center",
+                                  }}
                                   onError={(e) => {
                                     e.currentTarget.style.display = "none";
-                                    const fallback = e.currentTarget.parentElement?.querySelector(
-                                      ".food-image-fallback"
-                                    );
+
+                                    const fallback =
+                                      e.currentTarget.parentElement?.querySelector(
+                                        ".food-image-fallback"
+                                      );
+
                                     if (fallback) {
                                       fallback.style.display = "flex";
                                     }
                                   }}
+                                />
+
+                                <div
+                                  className="food-image-fallback"
                                   style={{
                                     width: "100%",
-                                    height: 220,
-                                    objectFit: "contain",
-                                    background: "#f5f5f5",
-                                    display: "block",
-                                  }}
-                                />
-                                <div
-                                  className="food-image-fallback bg-light"
-                                  style={{
-                                    height: 180,
-                                    fontSize: 70,
+                                    height: "100%",
                                     display: "none",
-                                    justifyContent: "center",
                                     alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: "70px",
+                                    backgroundColor: "#f1f3f5",
                                   }}
                                 >
                                   🍔
                                 </div>
-                              </>
+                              </div>
                             ) : (
                               <div
                                 className="d-flex justify-content-center align-items-center bg-light"
                                 style={{
-                                  height: 180,
+                                  height: 240,
                                   fontSize: 70,
                                 }}
                               >
