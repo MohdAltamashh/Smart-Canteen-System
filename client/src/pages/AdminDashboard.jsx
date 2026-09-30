@@ -1381,41 +1381,43 @@ const AdminDashboard = () => {
                           <div className="card h-100 border shadow-sm">
                             {item.imageUrl ? (
                               <>
-                              <img
-                                src={
-                                  getFoodImageUrl(item.imageUrl)
-                                }
-                                alt={
-                                  item.name
-                                }
-                                className="card-img-top"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = "none";
-                                  const fallback = e.currentTarget.parentElement?.querySelector(
-                                    ".food-image-fallback"
-                                  );
-                                  if (fallback) {
-                                    fallback.style.display = "flex";
+                                <img
+                                  src={
+                                    getFoodImageUrl(item.imageUrl)
                                   }
-                                }}
-                                style={{
-                                  height: 180,
-                                  objectFit:
-                                    "cover",
-                                }}
-                              />
-                              <div
-                                className="food-image-fallback bg-light"
-                                style={{
-                                  height: 180,
-                                  fontSize: 70,
-                                  display: "none",
-                                  justifyContent: "center",
-                                  alignItems: "center",
-                                }}
-                              >
-                                🍔
-                              </div>
+                                  alt={
+                                    item.name
+                                  }
+                                  className="card-img-top"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = "none";
+                                    const fallback = e.currentTarget.parentElement?.querySelector(
+                                      ".food-image-fallback"
+                                    );
+                                    if (fallback) {
+                                      fallback.style.display = "flex";
+                                    }
+                                  }}
+                                  style={{
+                                    width: "100%",
+                                    height: 220,
+                                    objectFit: "contain",
+                                    background: "#f5f5f5",
+                                    display: "block",
+                                  }}
+                                />
+                                <div
+                                  className="food-image-fallback bg-light"
+                                  style={{
+                                    height: 180,
+                                    fontSize: 70,
+                                    display: "none",
+                                    justifyContent: "center",
+                                    alignItems: "center",
+                                  }}
+                                >
+                                  🍔
+                                </div>
                               </>
                             ) : (
                               <div
