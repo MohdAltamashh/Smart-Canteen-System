@@ -6,6 +6,34 @@ const API_URL =
   process.env.REACT_APP_API_URL ||
   "http://localhost:5000/api";
 
+// =====================================================
+// FOOD IMAGE URL HELPER
+// =====================================================
+
+const getImageUrl = (imageUrl) => {
+  if (!imageUrl) {
+    return "";
+  }
+
+  const cleanImageUrl = String(imageUrl).trim();
+
+  // Already a complete image URL
+  if (
+    cleanImageUrl.startsWith("http://") ||
+    cleanImageUrl.startsWith("https://")
+  ) {
+    return cleanImageUrl;
+  }
+
+  // Build the backend base URL from /api
+  const backendUrl = API_URL.replace(/\/api\/?$/, "");
+
+  // Remove leading slash so we do not create //uploads
+  const cleanPath = cleanImageUrl.replace(/^\/+/, "");
+
+  return `${backendUrl}/${cleanPath}`;
+};
+
 const Home = ({ userRole }) => {
   const [foodItems, setFoodItems] = useState([]);
   const [search, setSearch] = useState("");
@@ -551,17 +579,51 @@ const Home = ({ userRole }) => {
 
                       {item.imageUrl ? (
                         <img
-                          src={item.imageUrl}
+                          src={getImageUrl(item.imageUrl)}
                           alt={item.name}
                           style={{
                             width: "100%",
                             height: "100%",
                             objectFit: "cover",
                           }}
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+
+                            const fallback =
+                              e.currentTarget.parentElement?.querySelector(
+                                ".home-food-image-fallback"
+                              );
+
+                            if (fallback) {
+                              fallback.style.display = "flex";
+                            }
+                          }}
                         />
                       ) : (
                         <span
+                          className="home-food-image-fallback"
                           style={{
+                            display: "flex",
+                            width: "100%",
+                            height: "100%",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "75px",
+                          }}
+                        >
+                          🍽️
+                        </span>
+                      )}
+
+                      {item.imageUrl && (
+                        <span
+                          className="home-food-image-fallback"
+                          style={{
+                            display: "none",
+                            width: "100%",
+                            height: "100%",
+                            alignItems: "center",
+                            justifyContent: "center",
                             fontSize: "75px",
                           }}
                         >
@@ -946,128 +1008,259 @@ const Home = ({ userRole }) => {
       </section>
 
       {/* ================================================= */}
-      {/* DEVELOPER / PROJECT INFORMATION */}
+      {/* PROJECT INFORMATION */}
       {/* ================================================= */}
 
       <section
         className="py-5"
         style={{
-          background: "#eef3f9",
+          background:
+            "linear-gradient(135deg, #eef5ff, #f7fbff)",
         }}
       >
-
         <div className="container">
 
-          <div className="row justify-content-center">
+          <div className="text-center mb-4">
+            <span className="badge bg-primary px-3 py-2">
+              ✨ CAMPUS BITE
+            </span>
 
+            <h2 className="fw-bold mt-3 mb-2">
+              Smart Food. Less Waiting.
+            </h2>
+
+            <p
+              className="text-muted mb-0"
+              style={{ maxWidth: "650px", margin: "0 auto" }}
+            >
+              A simple digital canteen experience designed
+              to make campus food ordering faster and easier.
+            </p>
+          </div>
+
+          <div className="row g-3 align-items-stretch">
+
+            {/* COMPACT DEVELOPER INFORMATION */}
+            <div className="col-lg-5">
+              <div
+                className="card h-100 border-0 shadow-sm"
+                style={{
+                  borderRadius: "18px",
+                  overflow: "hidden",
+                }}
+              >
+                <div className="card-body p-4">
+
+                  <div className="d-flex align-items-center gap-3">
+
+                    <div
+                      style={{
+                        width: "58px",
+                        height: "58px",
+                        minWidth: "58px",
+                        borderRadius: "16px",
+                        background:
+                          "linear-gradient(135deg, #073b7a, #0d6efd)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#fff",
+                        fontSize: "25px",
+                        boxShadow:
+                          "0 8px 20px rgba(13,110,253,0.20)",
+                      }}
+                    >
+                      👨‍💻
+                    </div>
+
+                    <div>
+                      <small className="text-primary fw-semibold">
+                        PROJECT DEVELOPER
+                      </small>
+
+                      <h5 className="fw-bold mb-0 mt-1">
+                        Mohd Altamash
+                      </h5>
+
+                      <small className="text-muted">
+                        MCA • Campus Bite
+                      </small>
+                    </div>
+
+                  </div>
+
+                  <hr className="my-3" />
+
+                  <div className="d-flex flex-wrap gap-2">
+
+                    <span className="badge bg-light text-dark px-3 py-2">
+                      ⚛️ React
+                    </span>
+
+                    <span className="badge bg-light text-dark px-3 py-2">
+                      🟢 Node.js
+                    </span>
+
+                    <span className="badge bg-light text-dark px-3 py-2">
+                      🍃 MongoDB
+                    </span>
+
+                    <span className="badge bg-light text-dark px-3 py-2">
+                      💳 Razorpay
+                    </span>
+
+                  </div>
+
+                  <p className="text-muted small mt-3 mb-0">
+                    Digital Food Ordering & Service Platform
+                  </p>
+
+                </div>
+              </div>
+            </div>
+
+            {/* ATTRACTIVE PROJECT HIGHLIGHTS */}
             <div className="col-lg-7">
+              <div className="row g-3 h-100">
 
-              <div className="card text-center p-4">
+                <div className="col-sm-6">
+                  <div
+                    className="card h-100 border-0 shadow-sm"
+                    style={{ borderRadius: "18px" }}
+                  >
+                    <div className="card-body p-4">
+                      <div
+                        style={{
+                          width: "46px",
+                          height: "46px",
+                          borderRadius: "14px",
+                          background: "#e8f1ff",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "22px",
+                        }}
+                      >
+                        ⚡
+                      </div>
 
-                <div
-                  style={{
-                    width: "72px",
-                    height: "72px",
-                    margin: "0 auto",
-                    borderRadius: "50%",
-                    background:
-                      "linear-gradient(135deg, #073b7a, #0d6efd)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#fff",
-                    fontSize: "30px",
-                  }}
-                >
-                  👨‍💻
+                      <h6 className="fw-bold mt-3 mb-2">
+                        Quick Pre-Order
+                      </h6>
+
+                      <p className="text-muted small mb-0">
+                        Select food, add it to cart and place
+                        your order before reaching the counter.
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                <span className="badge bg-primary mx-auto mt-3 px-3 py-2">
-                  PROJECT DEVELOPER
-                </span>
-
-                <h3 className="fw-bold mt-3 mb-1">
-                  Mohd Altamash
-                </h3>
-
-                <p className="text-muted mb-4">
-                  Developer & Creator of Smart Canteen
-                </p>
-
-                <div className="row g-3">
-
-                  <div className="col-md-6">
-
-                    <div
-                      className="p-3 rounded"
-                      style={{
-                        background: "#f7f9fc",
-                      }}
-                    >
-
-                      <div style={{ fontSize: "24px" }}>
-                        📧
+                <div className="col-sm-6">
+                  <div
+                    className="card h-100 border-0 shadow-sm"
+                    style={{ borderRadius: "18px" }}
+                  >
+                    <div className="card-body p-4">
+                      <div
+                        style={{
+                          width: "46px",
+                          height: "46px",
+                          borderRadius: "14px",
+                          background: "#eafaf2",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "22px",
+                        }}
+                      >
+                        🎫
                       </div>
 
-                      <small className="text-muted">
-                        Email
-                      </small>
+                      <h6 className="fw-bold mt-3 mb-2">
+                        Smart Token
+                      </h6>
 
-                      <div className="fw-semibold">
-                        altamasha607@gmail.com
-                      </div>
-
+                      <p className="text-muted small mb-0">
+                        Get a unique token after successful
+                        payment for easy pickup.
+                      </p>
                     </div>
-
                   </div>
-
-                  <div className="col-md-6">
-
-                    <div
-                      className="p-3 rounded"
-                      style={{
-                        background: "#f7f9fc",
-                      }}
-                    >
-
-                      <div style={{ fontSize: "24px" }}>
-                        📱
-                      </div>
-
-                      <small className="text-muted">
-                        Phone
-                      </small>
-
-                      <div className="fw-semibold">
-                        +91 9027693960
-                      </div>
-
-                    </div>
-
-                  </div>
-
                 </div>
 
-                <hr className="my-4" />
+                <div className="col-sm-6">
+                  <div
+                    className="card h-100 border-0 shadow-sm"
+                    style={{ borderRadius: "18px" }}
+                  >
+                    <div className="card-body p-4">
+                      <div
+                        style={{
+                          width: "46px",
+                          height: "46px",
+                          borderRadius: "14px",
+                          background: "#fff5df",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "22px",
+                        }}
+                      >
+                        💳
+                      </div>
 
-                <p className="text-muted small mb-0">
-                  Smart Canteen Pre-Order & Token
-                  Management System
-                </p>
+                      <h6 className="fw-bold mt-3 mb-2">
+                        Secure Checkout
+                      </h6>
 
-                <p className="text-muted small mb-0">
-                  Developed as a college project using
-                  modern web technologies.
-                </p>
+                      <p className="text-muted small mb-0">
+                        Complete your food order using
+                        the integrated online payment flow.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-sm-6">
+                  <div
+                    className="card h-100 border-0 shadow-sm"
+                    style={{ borderRadius: "18px" }}
+                  >
+                    <div className="card-body p-4">
+                      <div
+                        style={{
+                          width: "46px",
+                          height: "46px",
+                          borderRadius: "14px",
+                          background: "#f1eaff",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "22px",
+                        }}
+                      >
+                        🔔
+                      </div>
+
+                      <h6 className="fw-bold mt-3 mb-2">
+                        Live Order Updates
+                      </h6>
+
+                      <p className="text-muted small mb-0">
+                        Track your order status from pending
+                        to ready and completed.
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
               </div>
-
             </div>
 
           </div>
 
         </div>
-
       </section>
 
       {/* ================================================= */}
