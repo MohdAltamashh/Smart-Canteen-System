@@ -2,6 +2,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const http = require("http");
+const path = require("path");
 const { Server } = require("socket.io");
 
 require("dotenv").config();
@@ -30,145 +31,131 @@ const paymentRoutes = require("./routes/payment");
 
 const app = express();
 
-const PORT =
-  process.env.PORT || 5000;
+const PORT = process.env.PORT || 5000;
 
 
 // =====================================================
 // HTTP SERVER
 // =====================================================
 
-const server =
-  http.createServer(app);
+const server = http.createServer(app);
 
 
 // =====================================================
 // SOCKET.IO
 // =====================================================
 
-const io = new Server(
-  server,
-  {
-    cors: {
-      origin: "*",
+const io = new Server(server, {
+  cors: {
+    origin: "*",
 
-      methods: [
-        "GET",
-        "POST",
-        "PUT",
-        "DELETE",
-      ],
-    },
-  }
-);
+    methods: [
+      "GET",
+      "POST",
+      "PUT",
+      "DELETE",
+    ],
+  },
+});
 
 
 // =====================================================
 // MAKE SOCKET.IO AVAILABLE IN CONTROLLERS
 // =====================================================
 
-app.set(
-  "io",
-  io
-);
+app.set("io", io);
 
 
 // =====================================================
 // SOCKET CONNECTION
 // =====================================================
 
-io.on(
-  "connection",
-  (socket) => {
+io.on("connection", (socket) => {
+
+  console.log(
+    "======================================"
+  );
+
+  console.log(
+    "Socket connected:",
+    socket.id
+  );
+
+  console.log(
+    "======================================"
+  );
+
+
+  // -------------------------------------------------
+  // JOIN USER ROOM
+  // -------------------------------------------------
+
+  socket.on("joinUserRoom", (userId) => {
+
+    if (!userId) {
+
+      console.log(
+        "No userId provided for socket room"
+      );
+
+      return;
+    }
+
+
+    const roomName = `user_${userId}`;
+
+
+    socket.join(roomName);
+
 
     console.log(
-      "======================================"
+      `Socket ${socket.id} joined room: ${roomName}`
     );
 
+  });
+
+
+  // -------------------------------------------------
+  // DISCONNECT
+  // -------------------------------------------------
+
+  socket.on("disconnect", () => {
+
     console.log(
-      "Socket connected:",
+      "Socket disconnected:",
       socket.id
     );
 
-    console.log(
-      "======================================"
-    );
+  });
 
-
-    // -------------------------------------------------
-    // JOIN USER ROOM
-    // -------------------------------------------------
-
-    socket.on(
-      "joinUserRoom",
-      (userId) => {
-
-        if (!userId) {
-
-          console.log(
-            "No userId provided for socket room"
-          );
-
-          return;
-        }
-
-
-        const roomName =
-          `user_${userId}`;
-
-
-        socket.join(
-          roomName
-        );
-
-
-        console.log(
-          `Socket ${socket.id} joined room: ${roomName}`
-        );
-      }
-    );
-
-
-    // -------------------------------------------------
-    // DISCONNECT
-    // -------------------------------------------------
-
-    socket.on(
-      "disconnect",
-      () => {
-
-        console.log(
-          "Socket disconnected:",
-          socket.id
-        );
-
-      }
-    );
-
-  }
-);
+});
 
 
 // =====================================================
 // MIDDLEWARE
 // =====================================================
 
-app.use(
-  cors()
-);
+app.use(cors());
 
-app.use(
-  express.json()
-);
+app.use(express.json());
 
 
 // =====================================================
 // UPLOADS
 // =====================================================
 
+// IMPORTANT:
+// Use an absolute path so uploaded food images work
+// correctly on both Localhost and Render.
+
+const uploadsPath = path.join(
+  __dirname,
+  "uploads"
+);
+
 app.use(
   "/uploads",
-  express.static("uploads")
+  express.static(uploadsPath)
 );
 
 
@@ -176,17 +163,15 @@ app.use(
 // REQUEST LOGGER
 // =====================================================
 
-app.use(
-  (req, res, next) => {
+app.use((req, res, next) => {
 
-    console.log(
-      `${req.method} ${req.path}`
-    );
+  console.log(
+    `${req.method} ${req.path}`
+  );
 
-    next();
+  next();
 
-  }
-);
+});
 
 
 // =====================================================
@@ -201,33 +186,29 @@ mongoose
       useUnifiedTopology: true,
     }
   )
-  .then(
-    () => {
+  .then(() => {
 
-      console.log(
-        "======================================"
-      );
+    console.log(
+      "======================================"
+    );
 
-      console.log(
-        "Old Complaint System MongoDB Connected"
-      );
+    console.log(
+      "Old Complaint System MongoDB Connected"
+    );
 
-      console.log(
-        "======================================"
-      );
+    console.log(
+      "======================================"
+    );
 
-    }
-  )
-  .catch(
-    (error) => {
+  })
+  .catch((error) => {
 
-      console.error(
-        "Old MongoDB connection error:",
-        error
-      );
+    console.error(
+      "Old MongoDB connection error:",
+      error
+    );
 
-    }
-  );
+  });
 
 
 // =====================================================
@@ -238,9 +219,6 @@ app.use(
   "/api/auth",
   authRoutes
 );
-
-
-
 
 
 app.use(
@@ -368,7 +346,6 @@ app.get(
       res.json({
 
         totalUsers:
-
           totalUsers,
 
       });
@@ -508,6 +485,10 @@ server.listen(
 
     console.log(
       "Payment: Razorpay"
+    );
+
+    console.log(
+      "Uploads: /uploads"
     );
 
     console.log(

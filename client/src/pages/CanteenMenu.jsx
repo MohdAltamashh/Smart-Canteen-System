@@ -21,21 +21,49 @@ const getImageUrl = (imageUrl) => {
     return "";
   }
 
-  // Already complete URL
+  const cleanImageUrl = String(imageUrl).trim();
+
+  // -----------------------------------------------------
+  // 1. Already a complete external URL
+  // -----------------------------------------------------
+
   if (
-    imageUrl.startsWith("http://") ||
-    imageUrl.startsWith("https://")
+    cleanImageUrl.startsWith("http://") ||
+    cleanImageUrl.startsWith("https://")
   ) {
-    return imageUrl;
+    return cleanImageUrl;
   }
 
-  // Uploaded backend image
-  if (imageUrl.startsWith("/uploads/food/")) {
-    return `${API_URL}/food${imageUrl}`;
+  // -----------------------------------------------------
+  // 2. Get backend base URL
+  //    API_URL = https://your-backend.onrender.com/api
+  //    We need:
+  //    https://your-backend.onrender.com
+  // -----------------------------------------------------
+
+  const BACKEND_URL = API_URL.replace(/\/api\/?$/, "");
+
+  // -----------------------------------------------------
+  // 3. Uploaded food image
+  //    Example stored in MongoDB:
+  //    /uploads/food/samosa.jpg
+  //
+  //    Final URL:
+  //    https://your-backend.onrender.com/uploads/food/samosa.jpg
+  // -----------------------------------------------------
+
+  if (
+    cleanImageUrl.startsWith("/uploads/") ||
+    cleanImageUrl.startsWith("uploads/")
+  ) {
+    return `${BACKEND_URL}/${cleanImageUrl.replace(/^\/+/, "")}`;
   }
 
-  // Other relative image path
-  return `${API_URL}${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`;
+  // -----------------------------------------------------
+  // 4. Other relative image path
+  // -----------------------------------------------------
+
+  return `${BACKEND_URL}/${cleanImageUrl.replace(/^\/+/, "")}`;
 };
 
 // =====================================================
