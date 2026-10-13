@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const FoodCourt = require('../models/FoodCourt');
 
 // ==========================================
 // CREATE STAFF ACCOUNT - ADMIN ONLY
@@ -9,31 +10,28 @@ const createStaff = async (req, res) => {
         name,
         email,
         password,
-        department
+        foodCourt
     } = req.body;
 
     try {
-        // ==========================================
-        // REQUIRED FIELDS
-        // ==========================================
-        if (
-            !name ||
-            !email ||
-            !password ||
-            !department
-        ) {
+        // Validate required fields
+        if (!name || !email || !password || !foodCourt) {
             return res.status(400).json({
-                message: 'All fields are required'
+                message: 'Name, email, password and Food Court are required'
             });
         }
 
         const cleanName = name.trim();
         const cleanEmail = email.trim().toLowerCase();
-        const cleanDepartment = department.trim();
 
-        // ==========================================
-        // VALIDATE EMAIL
-        // ==========================================
+        // Validate name
+        if (!cleanName) {
+            return res.status(400).json({
+                message: 'Staff name is required'
+            });
+        }
+
+        // Validate email
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
         if (!emailRegex.test(cleanEmail)) {
@@ -42,18 +40,26 @@ const createStaff = async (req, res) => {
             });
         }
 
-        // ==========================================
-        // VALIDATE PASSWORD
-        // ==========================================
+        // Validate password
         if (password.length < 6) {
             return res.status(400).json({
                 message: 'Password must be at least 6 characters long'
             });
         }
 
-        // ==========================================
-        // CHECK EXISTING USER
-        // ==========================================
+        // Verify selected Food Court
+        const selectedFoodCourt = await FoodCourt.findOne({
+            _id: foodCourt,
+            isActive: true
+        });
+
+        if (!selectedFoodCourt) {
+            return res.status(400).json({
+                message: 'Selected Food Court does not exist or is inactive'
+            });
+        }
+
+        // Check duplicate email
         const existingUser = await User.findOne({
             email: cleanEmail
         });
@@ -64,57 +70,54 @@ const createStaff = async (req, res) => {
             });
         }
 
-        // ==========================================
-        // HASH PASSWORD
-        // ==========================================
-        const hashedPassword = await bcrypt.hash(
-            password,
-            10
-        );
+        // Hash password
+        const hashedPassword = await bcrypt.hash(password, 10);
 
-        // ==========================================
-        // CREATE STAFF
-        // ==========================================
+        // Create Staff
+        // Department is kept in the database for compatibility
+        // but Admin no longer needs to enter it.
         const newStaff = new User({
             name: cleanName,
             email: cleanEmail,
             password: hashedPassword,
             role: 'staff',
-            department: cleanDepartment
+            department: 'Canteen',
+            foodCourt: selectedFoodCourt._id
         });
 
         await newStaff.save();
 
-        console.log(
-            'Staff account created by admin:',
-            {
-                name: newStaff.name,
-                email: newStaff.email,
-                department: newStaff.department
-            }
-        );
+        console.log('Staff created successfully:', {
+            id: newStaff._id,
+            name: newStaff.name,
+            email: newStaff.email,
+            foodCourt: selectedFoodCourt.name
+        });
 
         return res.status(201).json({
             message: 'Staff account created successfully',
             staff: {
-                id: newStaff._id,
+                _id: newStaff._id,
                 name: newStaff.name,
                 email: newStaff.email,
                 role: newStaff.role,
-                department: newStaff.department
+                foodCourt: newStaff.foodCourt,
+                foodCourtName: selectedFoodCourt.name
             }
         });
 
     } catch (error) {
-        console.error(
-            'Create staff error:',
-            error
-        );
+        console.error('Create staff error:', error);
 
-        // Duplicate email safety
         if (error.code === 11000) {
             return res.status(400).json({
                 message: 'User with this email already exists'
+            });
+        }
+
+        if (error.name === 'CastError') {
+            return res.status(400).json({
+                message: 'Invalid Food Court ID'
             });
         }
 

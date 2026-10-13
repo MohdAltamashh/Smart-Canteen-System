@@ -28,19 +28,13 @@ const ORDER_STATUSES = [
   "Cancelled",
 ];
 
-const STAFF_DEPARTMENTS = [
-  "Canteen",
-  "Kitchen",
-  "Management",
-  "Food Counter",
-  "Other",
-];
 
 const EMPTY_FOOD_FORM = {
   name: "",
   description: "",
   price: "",
   category: "Fast Food",
+  foodCourt: "",
   imageUrl: "",
   imageFile: null,
   isAvailable: true,
@@ -49,8 +43,13 @@ const EMPTY_FOOD_FORM = {
 const EMPTY_STAFF_FORM = {
   name: "",
   email: "",
-  department: "",
   password: "",
+  foodCourt: "",
+};
+
+const EMPTY_FOOD_COURT_FORM = {
+  name: "",
+  description: "",
 };
 
 // =====================================================
@@ -115,6 +114,12 @@ const AdminDashboard = () => {
 
   const [staffForm, setStaffForm] =
     useState(EMPTY_STAFF_FORM);
+
+  const [foodCourts, setFoodCourts] = useState([]);
+  const [foodCourtsLoading, setFoodCourtsLoading] = useState(false);
+  const [foodCourtCreating, setFoodCourtCreating] = useState(false);
+  const [foodCourtForm, setFoodCourtForm] = useState(EMPTY_FOOD_COURT_FORM);
+  const [staffDeletingId, setStaffDeletingId] = useState("");
 
   // =====================================================
   // MESSAGES
@@ -307,6 +312,39 @@ const AdminDashboard = () => {
   }, [getAuthConfig]);
 
   // =====================================================
+  // FETCH FOOD COURTS
+  // =====================================================
+
+  const fetchFoodCourts = useCallback(async () => {
+    try {
+      setFoodCourtsLoading(true);
+      const config = getAuthConfig();
+
+      if (!config) {
+        setError("Please login as admin.");
+        return;
+      }
+
+      const response = await axios.get(
+        `${API}/auth/food-courts`,
+        config
+      );
+
+      setFoodCourts(
+        Array.isArray(response.data) ? response.data : []
+      );
+    } catch (err) {
+      console.error("Food Court fetch error:", err);
+      setError(
+        err.response?.data?.message ||
+        "Failed to load Food Courts."
+      );
+    } finally {
+      setFoodCourtsLoading(false);
+    }
+  }, [getAuthConfig]);
+
+  // =====================================================
   // INITIAL LOAD
   // =====================================================
 
@@ -314,7 +352,8 @@ const AdminDashboard = () => {
     fetchFoodItems();
     fetchOrders();
     fetchStaff();
-  }, [fetchFoodItems, fetchOrders, fetchStaff]);
+    fetchFoodCourts();
+  }, [fetchFoodItems, fetchOrders, fetchStaff, fetchFoodCourts]);
 
   // =====================================================
   // FOOD FORM CHANGE
@@ -399,6 +438,11 @@ const AdminDashboard = () => {
         return;
       }
 
+      if (!foodForm.foodCourt) {
+        setError("Please assign this food item to a Food Court.");
+        return;
+      }
+
       if (
         foodForm.price === "" ||
         Number(foodForm.price) < 0
@@ -430,6 +474,11 @@ const AdminDashboard = () => {
       formData.append(
         "category",
         foodForm.category
+      );
+
+      formData.append(
+        "foodCourt",
+        foodForm.foodCourt
       );
 
       formData.append(
@@ -506,6 +555,10 @@ const AdminDashboard = () => {
         FOOD_CATEGORIES[
         FOOD_CATEGORIES.length - 1
         ],
+      foodCourt:
+        typeof item.foodCourt === "string"
+          ? item.foodCourt
+          : item.foodCourt?._id || "",
       imageUrl:
         item.imageUrl || "",
       imageFile: null,
@@ -673,6 +726,58 @@ const AdminDashboard = () => {
     });
   };
 
+  const handleFoodCourtFormChange = (e) => {
+    const { name, value } = e.target;
+    setFoodCourtForm((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
+  };
+
+  const handleCreateFoodCourt = async (e) => {
+    e.preventDefault();
+    setMessage("");
+    setError("");
+
+    if (!foodCourtForm.name.trim()) {
+      setError("Food Court name is required.");
+      return;
+    }
+
+    try {
+      setFoodCourtCreating(true);
+      const config = getAuthConfig();
+
+      if (!config) {
+        setError("Please login as admin.");
+        return;
+      }
+
+      const response = await axios.post(
+        `${API}/auth/food-courts`,
+        {
+          name: foodCourtForm.name.trim(),
+          description: foodCourtForm.description.trim(),
+        },
+        config
+      );
+
+      setMessage(
+        response.data.message || "Food Court created successfully."
+      );
+      setFoodCourtForm(EMPTY_FOOD_COURT_FORM);
+      await fetchFoodCourts();
+    } catch (err) {
+      console.error("Create Food Court error:", err);
+      setError(
+        err.response?.data?.message ||
+        "Failed to create Food Court."
+      );
+    } finally {
+      setFoodCourtCreating(false);
+    }
+  };
+
   // =====================================================
   // CREATE STAFF
   // =====================================================
@@ -686,18 +791,18 @@ const AdminDashboard = () => {
     const {
       name,
       email,
-      department,
       password,
+      foodCourt,
     } = staffForm;
 
     if (
       !name.trim() ||
       !email.trim() ||
-      !department.trim() ||
-      !password.trim()
+      !password.trim() ||
+      !foodCourt
     ) {
       setError(
-        "All staff fields are required."
+        "Staff name, email, password aur Food Court select karna zaroori hai."
       );
       return;
     }
@@ -728,9 +833,8 @@ const AdminDashboard = () => {
           {
             name: name.trim(),
             email: email.trim(),
-            department:
-              department.trim(),
             password,
+            foodCourt,
           },
           config
         );
@@ -755,6 +859,47 @@ const AdminDashboard = () => {
       );
     } finally {
       setStaffCreating(false);
+    }
+  };
+
+  // =====================================================
+  // DELETE STAFF
+  // =====================================================
+
+  const handleDeleteStaff = async (staff) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete the staff account for ${staff.name}?`
+    );
+
+    if (!confirmed) return;
+
+    setMessage("");
+    setError("");
+
+    try {
+      setStaffDeletingId(staff._id);
+      const config = getAuthConfig();
+
+      if (!config) {
+        setError("Please login as admin.");
+        return;
+      }
+
+      await axios.delete(
+        `${API}/auth/staff/${staff._id}`,
+        config
+      );
+
+      setMessage("Staff account deleted successfully.");
+      await fetchStaff();
+    } catch (err) {
+      console.error("Delete staff error:", err);
+      setError(
+        err.response?.data?.message ||
+        "Failed to delete staff account. Confirm the backend DELETE route is implemented."
+      );
+    } finally {
+      setStaffDeletingId("");
     }
   };
 
@@ -967,12 +1112,59 @@ const AdminDashboard = () => {
 
   return (
     <div
-      style={{
-        minHeight: "100vh",
-        backgroundColor:
-          "#f5f7fb",
-      }}
+      className="cb-admin-redesign"
+      style={{ minHeight: "100vh", backgroundColor: "#101116" }}
     >
+      <style>{`
+        .cb-admin-redesign { --cb-bg:#101116; --cb-panel:#191b22; --cb-panel2:#22252e; --cb-border:#343741; --cb-text:#f6f2eb; --cb-muted:#a9acb7; --cb-accent:#ffad55; color:var(--cb-text); padding-bottom:28px; }
+        .cb-admin-redesign * { box-sizing:border-box; }
+        .cb-admin-redesign > .container { max-width:1440px; }
+        .cb-admin-redesign > div:first-of-type { background:radial-gradient(circle at 85% 0%,rgba(255,173,85,.15),transparent 32%),linear-gradient(135deg,#191b22,#111319 72%) !important; border-bottom:1px solid #30323b; }
+        .cb-admin-redesign h1,.cb-admin-redesign h2,.cb-admin-redesign h3,.cb-admin-redesign h4,.cb-admin-redesign h5,.cb-admin-redesign h6 { color:#f7f2ea; }
+        .cb-admin-redesign p,.cb-admin-redesign .text-muted,.cb-admin-redesign small.text-muted { color:var(--cb-muted) !important; }
+        .cb-admin-redesign .card,.cb-admin-redesign .card-body,.cb-admin-redesign .card-footer { background:var(--cb-panel) !important; color:var(--cb-text) !important; border-color:var(--cb-border) !important; }
+        .cb-admin-redesign .card { border:1px solid var(--cb-border) !important; border-radius:16px !important; box-shadow:0 8px 26px rgba(0,0,0,.16) !important; overflow:hidden; }
+        .cb-admin-redesign .card-header { background:#1e2028 !important; color:var(--cb-text) !important; border-color:var(--cb-border) !important; }
+        .cb-admin-redesign .card-footer { border-top:1px solid var(--cb-border) !important; }
+        .cb-admin-redesign .form-control,.cb-admin-redesign .form-select { min-height:43px; background:#22252e !important; color:#f6f2eb !important; border:1px solid #3a3d47 !important; border-radius:10px !important; }
+        .cb-admin-redesign textarea.form-control { min-height:90px; }
+        .cb-admin-redesign .form-control::placeholder { color:#9296a2 !important; }
+        .cb-admin-redesign .form-label,.cb-admin-redesign .form-check-label { color:#e9e4dc !important; }
+        .cb-admin-redesign .form-select option { background:#22252e; color:#f6f2eb; }
+        .cb-admin-redesign .btn { border-radius:10px; font-weight:650; transition:transform .15s ease,filter .15s ease; }
+        .cb-admin-redesign .btn:hover { filter:brightness(1.08); }
+        .cb-admin-redesign .btn-primary,.cb-admin-redesign .btn-warning,.cb-admin-redesign .btn-success { background:#ffad55 !important; color:#21170c !important; border-color:#ffad55 !important; }
+        .cb-admin-redesign .btn-outline-primary,.cb-admin-redesign .btn-outline-success,.cb-admin-redesign .btn-outline-warning { color:#ffbd7a !important; border-color:#9a673b !important; }
+        .cb-admin-redesign .btn-outline-primary:hover,.cb-admin-redesign .btn-outline-success:hover,.cb-admin-redesign .btn-outline-warning:hover { background:#ffad55 !important; color:#21170c !important; }
+        .cb-admin-redesign .btn-outline-dark,.cb-admin-redesign .btn-dark { color:#f6f2eb !important; background:#292c35 !important; border-color:#444752 !important; }
+        .cb-admin-redesign .btn-outline-secondary,.cb-admin-redesign .btn-secondary { color:#e7e1d8 !important; border-color:#555965 !important; background:#30333d !important; }
+        .cb-admin-redesign .btn-outline-danger { color:#ff9999 !important; border-color:#9d5559 !important; }
+        .cb-admin-redesign .btn-light { background:#ffad55 !important; color:#21170c !important; border-color:#ffad55 !important; }
+        .cb-admin-redesign .table-responsive { border-radius:12px; }
+        .cb-admin-redesign .table,.cb-admin-redesign table.table,.cb-admin-redesign .table tbody,.cb-admin-redesign .table tbody tr,.cb-admin-redesign .table tbody td,.cb-admin-redesign .table thead,.cb-admin-redesign .table thead tr,.cb-admin-redesign .table thead th { --bs-table-bg:#171a21 !important; --bs-table-color:#f4f1eb !important; --bs-table-accent-bg:#171a21 !important; background-color:#171a21 !important; color:#f4f1eb !important; border-color:#343844 !important; box-shadow:none !important; }
+        .cb-admin-redesign .table thead th { background:#222630 !important; color:#ffbd7a !important; white-space:nowrap; }
+        .cb-admin-redesign .table tbody tr:hover td { background:#252a34 !important; color:#fff !important; }
+        .cb-admin-redesign .table td,.cb-admin-redesign .table th { padding:13px 12px; vertical-align:middle; }
+        .cb-admin-redesign .bg-white,.cb-admin-redesign .table-light,.cb-admin-redesign .table-light th { background:#222630 !important; color:#f4f1eb !important; }
+        .cb-admin-redesign .text-dark { color:#f4f1eb !important; }
+        .cb-admin-redesign .alert-success { background:#163626 !important; color:#a9f1c8 !important; border:1px solid #286444 !important; }
+        .cb-admin-redesign .alert-danger { background:#3a2024 !important; color:#ffc1c1 !important; border:1px solid #713940 !important; }
+        .cb-admin-redesign .alert-info { background:#1b2d38 !important; color:#c2eaff !important; border:1px solid #345366 !important; }
+        .cb-admin-redesign .alert-warning { background:#382b1c !important; color:#ffd7a4 !important; border:1px solid #6e5231 !important; }
+        .cb-admin-redesign .badge.bg-light { background:#2b2e38 !important; color:#f6f2eb !important; }
+        .cb-admin-redesign .food-image-fallback { background:#22252e !important; }
+        .cb-admin-redesign input[type="checkbox"] { accent-color:#ffad55; }
+        .cb-admin-redesign .btn-close { filter:invert(1); }
+        @media(max-width:767.98px) {
+          .cb-admin-redesign { padding-bottom:14px; }
+          .cb-admin-redesign h2 { font-size:25px; }
+          .cb-admin-redesign > .container { padding-left:12px; padding-right:12px; }
+          .cb-admin-redesign .card-body { padding:15px !important; }
+          .cb-admin-redesign .row.g-2 > [class*="col-"] { min-width:50%; }
+          .cb-admin-redesign .btn { white-space:normal; }
+          .cb-admin-redesign .table { min-width:760px; }
+        }
+      `}</style>
       {/* ================================================= */}
       {/* HEADER */}
       {/* ================================================= */}
@@ -1002,6 +1194,7 @@ const AdminDashboard = () => {
                 fetchFoodItems();
                 fetchOrders();
                 fetchStaff();
+                fetchFoodCourts();
               }}
             >
               🔄 Refresh
@@ -1128,6 +1321,7 @@ const AdminDashboard = () => {
                   onClick={() => {
                     setActiveTab("staff");
                     fetchStaff();
+                    fetchFoodCourts();
                   }}
                 >
                   👥 Staff Management
@@ -1466,6 +1660,18 @@ const AdminDashboard = () => {
                                 }
                               </span>
 
+                              <span className="badge bg-primary mb-2 ms-2">
+                                {item.foodCourt?.name ||
+                                  foodCourts.find(
+                                    (court) =>
+                                      court._id ===
+                                      (typeof item.foodCourt === "string"
+                                        ? item.foodCourt
+                                        : item.foodCourt?._id)
+                                  )?.name ||
+                                  "No Food Court"}
+                              </span>
+
                               <p className="text-muted">
                                 {item.description ||
                                   "No description"}
@@ -1627,6 +1833,38 @@ const AdminDashboard = () => {
                           )
                         )}
                       </select>
+                    </div>
+
+                    <div className="col-md-6">
+                      <label className="form-label fw-bold">
+                        Food Court
+                      </label>
+
+                      <select
+                        className="form-select"
+                        name="foodCourt"
+                        value={foodForm.foodCourt}
+                        onChange={handleFoodChange}
+                        required
+                        disabled={foodCourtsLoading || foodCourts.length === 0}
+                      >
+                        <option value="">
+                          {foodCourtsLoading
+                            ? "Loading Food Courts..."
+                            : "Select Food Court"}
+                        </option>
+                        {foodCourts.map((court) => (
+                          <option key={court._id} value={court._id}>
+                            {court.name}
+                          </option>
+                        ))}
+                      </select>
+
+                      {foodCourts.length === 0 && !foodCourtsLoading && (
+                        <small className="text-danger">
+                          Create a Food Court in Staff Management first.
+                        </small>
+                      )}
                     </div>
 
                     <div className="col-md-6">
@@ -2053,6 +2291,75 @@ const AdminDashboard = () => {
         {activeTab ===
           "staff" && (
             <div>
+              {/* FOOD COURT MANAGEMENT */}
+
+              <div className="card border-0 shadow-sm mb-4">
+                <div className="card-body">
+                  <h4 className="fw-bold mb-1">🏬 Food Court Management</h4>
+                  <p className="text-muted">
+                    Add cafeteria corners such as Hangries, Zaayka, Amul, or Yippee.
+                  </p>
+
+                  <form onSubmit={handleCreateFoodCourt}>
+                    <div className="row g-3">
+                      <div className="col-md-5">
+                        <label className="form-label fw-bold">Food Court Name</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          name="name"
+                          value={foodCourtForm.name}
+                          onChange={handleFoodCourtFormChange}
+                          placeholder="e.g. Hangries"
+                          required
+                        />
+                      </div>
+
+                      <div className="col-md-5">
+                        <label className="form-label fw-bold">Description (optional)</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          name="description"
+                          value={foodCourtForm.description}
+                          onChange={handleFoodCourtFormChange}
+                          placeholder="Short description"
+                        />
+                      </div>
+
+                      <div className="col-md-2 d-flex align-items-end">
+                        <button
+                          type="submit"
+                          className="btn btn-success w-100"
+                          disabled={foodCourtCreating}
+                        >
+                          {foodCourtCreating ? "Adding..." : "Add Corner"}
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+
+                  <hr />
+                  <h6 className="fw-bold">Active Food Courts</h6>
+
+                  {foodCourtsLoading ? (
+                    <span className="text-muted">Loading Food Courts...</span>
+                  ) : foodCourts.length === 0 ? (
+                    <span className="text-muted">
+                      No Food Courts found. Add your first corner above.
+                    </span>
+                  ) : (
+                    <div className="d-flex flex-wrap gap-2">
+                      {foodCourts.map((court) => (
+                        <span className="badge bg-primary p-2" key={court._id}>
+                          {court.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* CREATE STAFF */}
 
               <div className="card border-0 shadow-sm mb-4">
@@ -2120,41 +2427,34 @@ const AdminDashboard = () => {
 
                       <div className="col-md-6">
                         <label className="form-label fw-bold">
-                          Department / Area
+                          Assigned Food Court
                         </label>
 
                         <select
                           className="form-select"
-                          name="department"
-                          value={
-                            staffForm.department
-                          }
-                          onChange={
-                            handleStaffChange
-                          }
+                          name="foodCourt"
+                          value={staffForm.foodCourt}
+                          onChange={handleStaffChange}
                           required
+                          disabled={foodCourtsLoading || foodCourts.length === 0}
                         >
                           <option value="">
-                            Select Department / Area
+                            {foodCourtsLoading
+                              ? "Loading Food Courts..."
+                              : "Select Food Court"}
                           </option>
-
-                          {STAFF_DEPARTMENTS.map(
-                            (department) => (
-                              <option
-                                value={
-                                  department
-                                }
-                                key={
-                                  department
-                                }
-                              >
-                                {
-                                  department
-                                }
-                              </option>
-                            )
-                          )}
+                          {foodCourts.map((court) => (
+                            <option key={court._id} value={court._id}>
+                              {court.name}
+                            </option>
+                          ))}
                         </select>
+
+                        {foodCourts.length === 0 && !foodCourtsLoading && (
+                          <small className="text-danger">
+                            Add a Food Court above before creating staff.
+                          </small>
+                        )}
                       </div>
 
                       <div className="col-md-6">
@@ -2284,7 +2584,13 @@ const AdminDashboard = () => {
                               Department
                             </th>
                             <th>
+                              Food Court
+                            </th>
+                            <th>
                               Role
+                            </th>
+                            <th>
+                              Action
                             </th>
                           </tr>
                         </thead>
@@ -2331,9 +2637,36 @@ const AdminDashboard = () => {
                                 </td>
 
                                 <td>
+                                  <span className="badge bg-primary">
+                                    {staff.foodCourt?.name ||
+                                      foodCourts.find(
+                                        (court) =>
+                                          court._id ===
+                                          (typeof staff.foodCourt === "string"
+                                            ? staff.foodCourt
+                                            : staff.foodCourt?._id)
+                                      )?.name ||
+                                      "Not assigned"}
+                                  </span>
+                                </td>
+
+                                <td>
                                   <span className="badge bg-success">
                                     Staff
                                   </span>
+                                </td>
+
+                                <td>
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline-danger"
+                                    onClick={() => handleDeleteStaff(staff)}
+                                    disabled={staffDeletingId === staff._id}
+                                  >
+                                    {staffDeletingId === staff._id
+                                      ? "Deleting..."
+                                      : "🗑️ Delete"}
+                                  </button>
                                 </td>
                               </tr>
                             )

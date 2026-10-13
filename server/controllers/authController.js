@@ -1,4 +1,4 @@
-// filepath: smart-campus-complaint-system/server/controllers/authController.js
+// filepath: smart-canteen-system/server/controllers/authController.js
 
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');

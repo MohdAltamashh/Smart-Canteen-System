@@ -3,10 +3,7 @@ const canteenDB = require("../canteendb");
 
 const paymentSchema = new mongoose.Schema(
   {
-    // =====================================================
-    // STUDENT
-    // =====================================================
-
+    // Student details
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -16,58 +13,77 @@ const paymentSchema = new mongoose.Schema(
     studentName: {
       type: String,
       required: true,
+      trim: true,
     },
 
     studentEmail: {
       type: String,
       required: true,
+      trim: true,
+      lowercase: true,
     },
 
-    // =====================================================
-    // ORDER ITEMS
-    // =====================================================
+    // Food Court associated with this payment
+    foodCourt: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "FoodCourt",
+      required: true,
+      index: true,
+    },
 
-    items: [
-      {
-        foodItem: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "FoodItem",
-          required: true,
-        },
+    // Food items included in the payment
+    items: {
+      type: [
+        {
+          foodItem: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "FoodItem",
+            required: true,
+          },
 
-        name: {
-          type: String,
-          required: true,
-        },
+          name: {
+            type: String,
+            required: true,
+            trim: true,
+          },
 
-        price: {
-          type: Number,
-          required: true,
-          min: 0,
-        },
+          price: {
+            type: Number,
+            required: true,
+            min: 0,
+          },
 
-        quantity: {
-          type: Number,
-          required: true,
-          min: 1,
-        },
+          quantity: {
+            type: Number,
+            required: true,
+            min: 1,
+            validate: {
+              validator: Number.isInteger,
+              message: "Quantity must be a whole number.",
+            },
+          },
 
-        subtotal: {
-          type: Number,
-          required: true,
-          min: 0,
+          subtotal: {
+            type: Number,
+            required: true,
+            min: 0,
+          },
         },
+      ],
+      validate: {
+        validator: function (items) {
+          return Array.isArray(items) && items.length > 0;
+        },
+        message: "Payment must contain at least one item.",
       },
-    ],
+    },
 
-    // =====================================================
-    // RAZORPAY DETAILS
-    // =====================================================
-
+    // Razorpay details
     razorpayOrderId: {
       type: String,
       required: true,
       unique: true,
+      trim: true,
     },
 
     razorpayPaymentId: {
@@ -80,10 +96,7 @@ const paymentSchema = new mongoose.Schema(
       default: "",
     },
 
-    // =====================================================
-    // PAYMENT DETAILS
-    // =====================================================
-
+    // Payment details
     amount: {
       type: Number,
       required: true,
@@ -105,30 +118,18 @@ const paymentSchema = new mongoose.Schema(
       default: "Created",
     },
 
-    // =====================================================
-    // SMART CANTEEN ORDER REFERENCE
-    // =====================================================
-
+    // Generated order reference
     order: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Order",
       default: null,
     },
   },
-
   {
     timestamps: true,
   }
 );
 
-
-// =====================================================
-// EXPORT MODEL
-// =====================================================
-
 module.exports =
   canteenDB.models.Payment ||
-  canteenDB.model(
-    "Payment",
-    paymentSchema
-  );
+  canteenDB.model("Payment", paymentSchema);

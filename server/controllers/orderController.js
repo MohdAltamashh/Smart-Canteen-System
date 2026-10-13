@@ -1,5 +1,9 @@
+const mongoose = require("mongoose");
+
 const Order = require("../models/Order");
 const User = require("../models/User");
+const FoodItem = require("../models/FoodItem");
+const FoodCourt = require("../models/FoodCourt");
 
 const {
   sendOrderConfirmationEmail,
@@ -7,58 +11,481 @@ const {
 } = require("../services/emailService");
 
 // =====================================================
+// HELPER: CHECK ADMIN
+// =====================================================
+
+const isAdmin = (req) => {
+  return (
+    req.user &&
+    (
+      req.user.role === "admin" ||
+      String(req.user.id) === "admin"
+    )
+  );
+};
+
+// =====================================================
+// HELPER: SOCKET.IO NOTIFICATION
+// =====================================================
+
+const notifyOrderStatus = (
+  req,
+  order,
+  previousStatus
+) => {
+  try {
+    const io = req.app.get("io");
+
+    if (io && order.user) {
+      io.to(`user_${order.user}`).emit(
+        "orderStatusUpdated",
+        {
+          orderId: order.orderId,
+          tokenNumber: order.tokenNumber,
+          previousStatus,
+          status: order.status,
+          totalAmount: order.totalAmount,
+          message:
+            `Your order ${order.orderId} is now ${order.status}.`,
+          updatedAt: order.updatedAt,
+        }
+      );
+    }
+  } catch (error) {
+    console.error(
+      "Socket notification error:",
+      error.message
+    );
+  }
+};
+
+// =====================================================
+// HELPER: STATUS EMAIL
+// =====================================================
+
+const sendStatusEmailSafely = (
+  order,
+  previousStatus
+) => {
+  try {
+    Promise.resolve(
+      sendOrderStatusEmail(
+        order,
+        previousStatus
+      )
+    ).catch((error) => {
+      console.error(
+        "Order status email failed:",
+        error.message
+      );
+    });
+  } catch (error) {
+    console.error(
+      "Order status email error:",
+      error.message
+    );
+  }
+};
+
+// =====================================================
+// HELPER: ORDER CONFIRMATION EMAIL
+// =====================================================
+
+const sendConfirmationEmailSafely = (
+  order
+) => {
+  try {
+    Promise.resolve(
+      sendOrderConfirmationEmail(order)
+    ).catch((error) => {
+      console.error(
+        "Order confirmation email failed:",
+        error.message
+      );
+    });
+  } catch (error) {
+    console.error(
+      "Order confirmation email error:",
+      error.message
+    );
+  }
+};
+
+// =====================================================
+// HELPER: LOAD CURRENT USER
+// =====================================================
+
+const getCurrentUser = async (req) => {
+  if (isAdmin(req)) {
+    return {
+      _id: "admin",
+      role: "admin",
+      foodCourt: null,
+    };
+  }
+
+  const userId = req.user && req.user.id;
+
+  if (
+    !userId ||
+    !mongoose.Types.ObjectId.isValid(
+      String(userId)
+    )
+  ) {
+    return null;
+  }
+
+  return User.findById(userId).select(
+    "name email role foodCourt"
+  );
+};
+
+// =====================================================
+// HELPER: VERIFY ORDER BELONGS TO STAFF COURT
+// =====================================================
+
+const checkStaffOrderAccess = async (
+  staff,
+  order
+) => {
+  if (
+    !staff ||
+    staff.role !== "staff" ||
+    !staff.foodCourt
+  ) {
+    return {
+      allowed: false,
+      message:
+        "Your account is not assigned to a food court.",
+    };
+  }
+
+  const staffCourtId = String(
+    staff.foodCourt._id ||
+    staff.foodCourt
+  );
+
+  const itemIds = (order.items || [])
+    .map((item) => {
+      return item.foodItem &&
+        String(
+          item.foodItem._id ||
+          item.foodItem
+        );
+    })
+    .filter(Boolean);
+
+  if (itemIds.length === 0) {
+    return {
+      allowed: false,
+      message:
+        "This order has no verifiable food items.",
+    };
+  }
+
+  const foods = await FoodItem.find({
+    _id: { $in: itemIds },
+  })
+    .select("_id foodCourt")
+    .lean();
+
+  const foodMap = new Map(
+    foods.map((food) => [
+      String(food._id),
+      food,
+    ])
+  );
+
+  // Every item must belong to the staff's court.
+  const allItemsBelongToCourt =
+    itemIds.every((itemId) => {
+      const food = foodMap.get(
+        String(itemId)
+      );
+
+      return (
+        food &&
+        food.foodCourt &&
+        String(food.foodCourt) ===
+          staffCourtId
+      );
+    });
+
+  if (!allItemsBelongToCourt) {
+    return {
+      allowed: false,
+      message:
+        "This order contains items outside your assigned food court.",
+    };
+  }
+
+  const orderCourtId = order.foodCourt
+    ? String(
+        order.foodCourt._id ||
+        order.foodCourt
+      )
+    : null;
+
+  if (orderCourtId) {
+    if (orderCourtId !== staffCourtId) {
+      return {
+        allowed: false,
+        message:
+          "You cannot access another food court's order.",
+      };
+    }
+
+    return {
+      allowed: true,
+    };
+  }
+
+  // Legacy order: associate it only after
+  // verifying every item against the staff court.
+  order.foodCourt = staff.foodCourt._id ||
+    staff.foodCourt;
+
+  await order.save();
+
+  return {
+    allowed: true,
+  };
+};
+
+// =====================================================
 // CREATE ORDER
 // =====================================================
 
-const createOrder = async (req, res) => {
+const createOrder = async (
+  req,
+  res
+) => {
   try {
-    const { items, totalAmount } = req.body;
+    const { items } = req.body;
 
-    if (!items || items.length === 0) {
+    if (
+      !Array.isArray(items) ||
+      items.length === 0
+    ) {
       return res.status(400).json({
-        message: "Cart is empty",
+        message: "Cart is empty.",
       });
     }
 
-    const student = await User.findById(req.user.id);
+    const student = await User.findById(
+      req.user.id
+    );
 
     if (!student) {
       return res.status(404).json({
-        message: "Student account not found",
+        message:
+          "Student account not found.",
       });
     }
 
-    // Generate Order ID
-    const orderId = `ORD-${Date.now()}`;
+    // Validate item IDs and quantities.
+    const quantityById = new Map();
 
-    // Generate Token Number
-    const lastOrder = await Order.findOne().sort({
-      tokenNumber: -1,
+    for (const item of items) {
+      const itemId =
+        item &&
+        (
+          item._id ||
+          item.foodItem
+        );
+
+      const quantity = Number(
+        item && item.quantity
+      );
+
+      if (
+        !itemId ||
+        !mongoose.Types.ObjectId.isValid(
+          String(itemId)
+        ) ||
+        !Number.isInteger(quantity) ||
+        quantity < 1 ||
+        quantity > 100
+      ) {
+        return res.status(400).json({
+          message:
+            "Invalid food item or quantity.",
+        });
+      }
+
+      const id = String(itemId);
+
+      const updatedQuantity =
+        (quantityById.get(id) || 0) +
+        quantity;
+
+      if (updatedQuantity > 100) {
+        return res.status(400).json({
+          message:
+            "Maximum quantity per food item is 100.",
+        });
+      }
+
+      quantityById.set(
+        id,
+        updatedQuantity
+      );
+    }
+
+    const requestedItems = Array.from(
+      quantityById.entries()
+    ).map(([id, quantity]) => ({
+      _id: id,
+      quantity,
+    }));
+
+    const foodIds = requestedItems.map(
+      (item) => item._id
+    );
+
+    const foods = await FoodItem.find({
+      _id: { $in: foodIds },
     });
+
+    if (foods.length !== foodIds.length) {
+      return res.status(400).json({
+        message:
+          "One or more food items no longer exist.",
+      });
+    }
+
+    const foodById = new Map(
+      foods.map((food) => [
+        String(food._id),
+        food,
+      ])
+    );
+
+    for (const requested of requestedItems) {
+      const food = foodById.get(
+        String(requested._id)
+      );
+
+      if (!food) {
+        return res.status(400).json({
+          message: "Food item not found.",
+        });
+      }
+
+      if (food.isAvailable === false) {
+        return res.status(400).json({
+          message:
+            `${food.name} is currently unavailable.`,
+        });
+      }
+
+      if (!food.foodCourt) {
+        return res.status(400).json({
+          message:
+            `${food.name} is not assigned to a food court.`,
+        });
+      }
+    }
+
+    // A single order can belong to only one court.
+    const courtIds = [
+      ...new Set(
+        foods.map((food) =>
+          String(food.foodCourt)
+        )
+      ),
+    ];
+
+    if (courtIds.length !== 1) {
+      return res.status(400).json({
+        message:
+          "Please place separate orders for different food courts.",
+      });
+    }
+
+    const foodCourtId = courtIds[0];
+
+    const foodCourt = await FoodCourt.findById(
+      foodCourtId
+    );
+
+    if (
+      !foodCourt ||
+      foodCourt.isActive === false
+    ) {
+      return res.status(400).json({
+        message:
+          "This food court is unavailable.",
+      });
+    }
+
+    const orderItems = requestedItems.map(
+      (requested) => {
+        const food = foodById.get(
+          String(requested._id)
+        );
+
+        const price = Number(food.price);
+
+        if (
+          !Number.isFinite(price) ||
+          price < 0
+        ) {
+          throw new Error(
+            `Invalid price configured for ${food.name}.`
+          );
+        }
+
+        return {
+          foodItem: food._id,
+          name: food.name,
+          price,
+          quantity: requested.quantity,
+          subtotal: Number(
+            (
+              price *
+              requested.quantity
+            ).toFixed(2)
+          ),
+        };
+      }
+    );
+
+    const totalAmount = Number(
+      orderItems
+        .reduce(
+          (sum, item) =>
+            sum + item.subtotal,
+          0
+        )
+        .toFixed(2)
+    );
+
+    if (totalAmount <= 0) {
+      return res.status(400).json({
+        message: "Invalid order amount.",
+      });
+    }
+
+    const orderId =
+      `ORD-${Date.now()}`;
+
+    const lastOrder =
+      await Order.findOne().sort({
+        tokenNumber: -1,
+      });
 
     const tokenNumber = lastOrder
       ? lastOrder.tokenNumber + 1
       : 1;
 
-    // Prepare order items
-    const orderItems = items.map((item) => ({
-      foodItem: item._id,
-      name: item.name,
-      price: item.price,
-      quantity: item.quantity,
-      subtotal: item.price * item.quantity,
-    }));
-
-    // Create order
     const order = new Order({
       orderId,
       tokenNumber,
-
-      user: req.user.id,
-
+      user: student._id,
       studentName: student.name,
       studentEmail: student.email,
-
+      foodCourt: foodCourt._id,
       items: orderItems,
       totalAmount,
       status: "Pending",
@@ -66,130 +493,214 @@ const createOrder = async (req, res) => {
 
     await order.save();
 
-    // =====================================================
-    // SEND ORDER CONFIRMATION EMAIL
-    // =====================================================
+    sendConfirmationEmailSafely(order);
 
-    // Email failure should NOT stop successful order placement
-    sendOrderConfirmationEmail(order).catch((emailError) => {
-      console.error(
-        "Order confirmation email failed:",
-        emailError.message
-      );
-    });
-
-    // =====================================================
-    // RESPONSE
-    // =====================================================
-
-    res.status(201).json({
-      message: "Order placed successfully",
-
+    return res.status(201).json({
+      message: "Order placed successfully.",
       order: {
+        _id: order._id,
         orderId: order.orderId,
         tokenNumber: order.tokenNumber,
         items: order.items,
         totalAmount: order.totalAmount,
+        foodCourt: {
+          _id: foodCourt._id,
+          name: foodCourt.name,
+        },
         status: order.status,
         createdAt: order.createdAt,
       },
     });
-
   } catch (error) {
     console.error(
       "Create order error:",
       error
     );
 
-    res.status(500).json({
-      message: "Failed to create order",
+    return res.status(500).json({
+      message: "Failed to create order.",
       error: error.message,
     });
   }
 };
 
-
 // =====================================================
 // GET MY ORDERS
 // =====================================================
 
-const getMyOrders = async (req, res) => {
+const getMyOrders = async (
+  req,
+  res
+) => {
   try {
     const orders = await Order.find({
       user: req.user.id,
-    }).sort({
-      createdAt: -1,
-    });
+    })
+      .populate("foodCourt", "name")
+      .sort({
+        createdAt: -1,
+      });
 
-    res.status(200).json(orders);
-
+    return res.status(200).json(orders);
   } catch (error) {
     console.error(
       "Get my orders error:",
       error
     );
 
-    res.status(500).json({
-      message: "Failed to fetch orders",
+    return res.status(500).json({
+      message: "Failed to fetch orders.",
       error: error.message,
     });
   }
 };
 
-
 // =====================================================
 // GET ALL ORDERS
+// ADMIN: ALL COURTS
+// STAFF: ASSIGNED COURT ONLY
 // =====================================================
 
-const getAllOrders = async (req, res) => {
+const getAllOrders = async (
+  req,
+  res
+) => {
   try {
-    const orders = await Order.find()
+    const currentUser =
+      await getCurrentUser(req);
+
+    if (!currentUser) {
+      return res.status(401).json({
+        message:
+          "User account not found. Please login again.",
+      });
+    }
+
+    // Admin can see all courts.
+    if (currentUser.role === "admin") {
+      const orders = await Order.find()
+        .populate("user", "name email")
+        .populate("foodCourt", "name")
+        .sort({
+          createdAt: -1,
+        });
+
+      return res.status(200).json(orders);
+    }
+
+    if (currentUser.role !== "staff") {
+      return res.status(403).json({
+        message:
+          "You are not allowed to view all orders.",
+      });
+    }
+
+    if (!currentUser.foodCourt) {
+      return res.status(403).json({
+        message:
+          "Your account is not assigned to a food court.",
+      });
+    }
+
+    const staffCourtId = String(
+      currentUser.foodCourt
+    );
+
+    const candidateOrders = await Order.find({
+      $or: [
+        {
+          foodCourt:
+            currentUser.foodCourt,
+        },
+        {
+          foodCourt: null,
+        },
+        {
+          foodCourt: {
+            $exists: false,
+          },
+        },
+      ],
+    })
       .populate("user", "name email")
+      .populate("foodCourt", "name")
       .sort({
         createdAt: -1,
       });
 
-    res.status(200).json(orders);
+    const safeOrders = [];
 
+    for (const order of candidateOrders) {
+      const access =
+        await checkStaffOrderAccess(
+          currentUser,
+          order
+        );
+
+      if (!access.allowed) {
+        continue;
+      }
+
+      // Populate after legacy court assignment.
+      await order.populate(
+        "foodCourt",
+        "name"
+      );
+
+      if (
+        order.foodCourt &&
+        String(order.foodCourt._id) ===
+          staffCourtId
+      ) {
+        safeOrders.push(order);
+      }
+    }
+
+    return res.status(200).json(
+      safeOrders
+    );
   } catch (error) {
     console.error(
       "Get all orders error:",
       error
     );
 
-    res.status(500).json({
-      message: "Failed to fetch all orders",
+    return res.status(500).json({
+      message: "Failed to fetch orders.",
       error: error.message,
     });
   }
 };
 
-
 // =====================================================
 // CANCEL ORDER
+// STUDENT OWNER ONLY; PENDING ONLY
 // =====================================================
 
-const cancelOrder = async (req, res) => {
+const cancelOrder = async (
+  req,
+  res
+) => {
   try {
-    const orderId = req.params.id;
-
-    // -------------------------------------------------
-    // FIND ORDER
-    // -------------------------------------------------
+    if (
+      !mongoose.Types.ObjectId.isValid(
+        req.params.id
+      )
+    ) {
+      return res.status(400).json({
+        message: "Invalid order ID.",
+      });
+    }
 
     const order = await Order.findById(
-      orderId
+      req.params.id
     );
 
     if (!order) {
       return res.status(404).json({
-        message: "Order not found",
+        message: "Order not found.",
       });
     }
-
-    // -------------------------------------------------
-    // CHECK ORDER OWNER
-    // -------------------------------------------------
 
     if (
       String(order.user) !==
@@ -201,10 +712,6 @@ const cancelOrder = async (req, res) => {
       });
     }
 
-    // -------------------------------------------------
-    // ONLY PENDING ORDER CAN BE CANCELLED
-    // -------------------------------------------------
-
     if (order.status !== "Pending") {
       return res.status(400).json({
         message:
@@ -212,122 +719,51 @@ const cancelOrder = async (req, res) => {
       });
     }
 
-    // -------------------------------------------------
-    // UPDATE STATUS
-    // -------------------------------------------------
-
     const previousStatus = order.status;
 
     order.status = "Cancelled";
 
     await order.save();
 
-    // =====================================================
-    // EMAIL NOTIFICATION
-    // =====================================================
-
-    sendOrderStatusEmail(
+    sendStatusEmailSafely(
       order,
       previousStatus
-    ).catch((emailError) => {
-      console.error(
-        "Cancellation email failed:",
-        emailError.message
-      );
-    });
+    );
 
-    // -------------------------------------------------
-    // REAL-TIME SOCKET NOTIFICATION
-    // -------------------------------------------------
+    notifyOrderStatus(
+      req,
+      order,
+      previousStatus
+    );
 
-    try {
-      const io = req.app.get("io");
-
-      if (io && order.user) {
-        const roomName =
-          `user_${order.user}`;
-
-        io.to(roomName).emit(
-          "orderStatusUpdated",
-          {
-            orderId:
-              order.orderId,
-
-            tokenNumber:
-              order.tokenNumber,
-
-            previousStatus:
-              previousStatus,
-
-            status:
-              "Cancelled",
-
-            totalAmount:
-              order.totalAmount,
-
-            message:
-              `Your order ${order.orderId} has been cancelled.`,
-
-            updatedAt:
-              order.updatedAt,
-          }
-        );
-      }
-
-    } catch (socketError) {
-      console.error(
-        "Socket notification error:",
-        socketError
-      );
-    }
-
-    // -------------------------------------------------
-    // RESPONSE
-    // -------------------------------------------------
-
-    res.status(200).json({
-      message:
-        "Order cancelled successfully",
-
+    return res.status(200).json({
+      message: "Order cancelled successfully.",
       order: {
-        _id:
-          order._id,
-
-        orderId:
-          order.orderId,
-
-        tokenNumber:
-          order.tokenNumber,
-
-        status:
-          order.status,
-
-        totalAmount:
-          order.totalAmount,
-
-        updatedAt:
-          order.updatedAt,
+        _id: order._id,
+        orderId: order.orderId,
+        tokenNumber: order.tokenNumber,
+        status: order.status,
+        totalAmount: order.totalAmount,
+        updatedAt: order.updatedAt,
       },
     });
-
   } catch (error) {
     console.error(
       "Cancel order error:",
       error
     );
 
-    res.status(500).json({
-      message:
-        "Failed to cancel order",
-      error:
-        error.message,
+    return res.status(500).json({
+      message: "Failed to cancel order.",
+      error: error.message,
     });
   }
 };
 
-
 // =====================================================
 // UPDATE ORDER STATUS
+// ADMIN: ANY ORDER
+// STAFF: ASSIGNED COURT ONLY
 // =====================================================
 
 const updateOrderStatus = async (
@@ -345,175 +781,132 @@ const updateOrderStatus = async (
       "Cancelled",
     ];
 
-    // -------------------------------------------------
-    // CHECK STATUS
-    // -------------------------------------------------
-
-    if (!status) {
-      return res.status(400).json({
-        message: "Status is required",
-      });
-    }
-
-    // -------------------------------------------------
-    // CHECK VALID STATUS
-    // -------------------------------------------------
-
     if (
+      !status ||
       !allowedStatuses.includes(status)
     ) {
       return res.status(400).json({
-        message:
-          "Invalid order status",
+        message: "Invalid order status.",
       });
     }
 
-    // -------------------------------------------------
-    // FIND ORDER
-    // -------------------------------------------------
-
-    const order =
-      await Order.findById(
+    if (
+      !mongoose.Types.ObjectId.isValid(
         req.params.id
-      );
+      )
+    ) {
+      return res.status(400).json({
+        message: "Invalid order ID.",
+      });
+    }
+
+    const currentUser =
+      await getCurrentUser(req);
+
+    if (!currentUser) {
+      return res.status(401).json({
+        message:
+          "User account not found. Please login again.",
+      });
+    }
+
+    if (
+      !["admin", "staff"].includes(
+        currentUser.role
+      )
+    ) {
+      return res.status(403).json({
+        message:
+          "You are not allowed to update order status.",
+      });
+    }
+
+    const order = await Order.findById(
+      req.params.id
+    );
 
     if (!order) {
       return res.status(404).json({
-        message:
-          "Order not found",
+        message: "Order not found.",
       });
     }
 
-    // -------------------------------------------------
-    // SAVE OLD STATUS
-    // -------------------------------------------------
+    // Staff must pass the food court check.
+    if (currentUser.role === "staff") {
+      const access =
+        await checkStaffOrderAccess(
+          currentUser,
+          order
+        );
 
-    const previousStatus =
-      order.status;
+      if (!access.allowed) {
+        return res.status(403).json({
+          message: access.message,
+        });
+      }
+    }
 
-    // -------------------------------------------------
-    // UPDATE STATUS
-    // -------------------------------------------------
+    const previousStatus = order.status;
+
+    if (previousStatus === status) {
+      return res.status(200).json({
+        message:
+          "Order status is already set to this value.",
+        order: {
+          _id: order._id,
+          orderId: order.orderId,
+          tokenNumber: order.tokenNumber,
+          status: order.status,
+          totalAmount: order.totalAmount,
+          updatedAt: order.updatedAt,
+        },
+      });
+    }
 
     order.status = status;
 
     await order.save();
 
-    // =====================================================
-    // SEND EMAIL NOTIFICATION
-    // =====================================================
+    sendStatusEmailSafely(
+      order,
+      previousStatus
+    );
 
-    // Don't send an email if status hasn't actually changed
-    if (previousStatus !== order.status) {
-      sendOrderStatusEmail(
-        order,
-        previousStatus
-      ).catch((emailError) => {
-        console.error(
-          "Order status email failed:",
-          emailError.message
-        );
-      });
-    }
+    notifyOrderStatus(
+      req,
+      order,
+      previousStatus
+    );
 
-    // =====================================================
-    // REAL-TIME SOCKET.IO NOTIFICATION
-    // =====================================================
-
-    try {
-      const io =
-        req.app.get("io");
-
-      if (
-        io &&
-        order.user
-      ) {
-        const roomName =
-          `user_${order.user}`;
-
-        io.to(roomName).emit(
-          "orderStatusUpdated",
-          {
-            orderId:
-              order.orderId,
-
-            tokenNumber:
-              order.tokenNumber,
-
-            previousStatus:
-              previousStatus,
-
-            status:
-              order.status,
-
-            totalAmount:
-              order.totalAmount,
-
-            message:
-              `Your order ${order.orderId} is now ${order.status}.`,
-
-            updatedAt:
-              order.updatedAt,
-          }
-        );
-
-        console.log(
-          `Real-time notification sent to ${roomName}`
-        );
-      }
-
-    } catch (socketError) {
-      console.error(
-        "Socket notification error:",
-        socketError
-      );
-    }
-
-    // -------------------------------------------------
-    // RESPONSE
-    // -------------------------------------------------
-
-    res.status(200).json({
+    return res.status(200).json({
       message:
-        "Order status updated successfully",
-
+        "Order status updated successfully.",
       order: {
-        orderId:
-          order.orderId,
-
-        tokenNumber:
-          order.tokenNumber,
-
-        status:
-          order.status,
-
-        totalAmount:
-          order.totalAmount,
-
-        updatedAt:
-          order.updatedAt,
+        _id: order._id,
+        orderId: order.orderId,
+        tokenNumber: order.tokenNumber,
+        status: order.status,
+        totalAmount: order.totalAmount,
+        foodCourt: order.foodCourt,
+        updatedAt: order.updatedAt,
       },
     });
-
   } catch (error) {
     console.error(
       "Update order status error:",
       error
     );
 
-    res.status(500).json({
+    return res.status(500).json({
       message:
-        "Failed to update order status",
-
-      error:
-        error.message,
+        "Failed to update order status.",
+      error: error.message,
     });
   }
 };
 
-
 // =====================================================
-// EXPORT ALL FUNCTIONS
+// EXPORTS
 // =====================================================
 
 module.exports = {

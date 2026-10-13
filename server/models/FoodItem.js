@@ -41,6 +41,14 @@ const foodItemSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+
+    // Food Corner
+    // Example: Hangries / Zaayka / Amul / Yippee
+    foodCourt: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "FoodCourt",
+      default: null,
+    },
   },
   {
     timestamps: true,

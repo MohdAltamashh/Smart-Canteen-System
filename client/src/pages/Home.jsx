@@ -1,1319 +1,1403 @@
+// client/src/pages/Home.jsx
+
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import axios from "axios";
-
-const API_URL =
-  process.env.REACT_APP_API_URL ||
-  "http://localhost:5000/api";
-
-// =====================================================
-// FOOD IMAGE URL HELPER
-// =====================================================
-
-const getImageUrl = (imageUrl) => {
-  if (!imageUrl) {
-    return "";
-  }
-
-  const cleanImageUrl = String(imageUrl).trim();
-
-  // Already a complete image URL
-  if (
-    cleanImageUrl.startsWith("http://") ||
-    cleanImageUrl.startsWith("https://")
-  ) {
-    return cleanImageUrl;
-  }
-
-  // Build the backend base URL from /api
-  const backendUrl = API_URL.replace(/\/api\/?$/, "");
-
-  // Remove leading slash so we do not create //uploads
-  const cleanPath = cleanImageUrl.replace(/^\/+/, "");
-
-  return `${backendUrl}/${cleanPath}`;
-};
 
 const Home = ({ userRole }) => {
-  const [foodItems, setFoodItems] = useState([]);
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("All");
-
   const [isLoggedIn, setIsLoggedIn] = useState(
-    !!localStorage.getItem("token")
+    Boolean(localStorage.getItem("token"))
   );
 
-  // =====================================================
-  // CHECK LOGIN STATUS
-  // =====================================================
-
+  // Keep login state updated
   useEffect(() => {
     const checkLogin = () => {
-      setIsLoggedIn(!!localStorage.getItem("token"));
+      setIsLoggedIn(Boolean(localStorage.getItem("token")));
     };
 
-    checkLogin();
-
     window.addEventListener("storage", checkLogin);
+    window.addEventListener("authChanged", checkLogin);
 
     return () => {
       window.removeEventListener("storage", checkLogin);
+      window.removeEventListener("authChanged", checkLogin);
     };
   }, []);
 
-  // =====================================================
-  // FETCH FOOD ITEMS
-  // =====================================================
-
-  useEffect(() => {
-    if (
-      isLoggedIn &&
-      (userRole === "staff" || userRole === "admin")
-    ) {
-      setFoodItems([]);
-      return;
-    }
-
-    const fetchFoodItems = async () => {
-      try {
-        const response = await axios.get(
-          `${API_URL}/food`
-        );
-
-        const availableItems = response.data.filter(
-          (item) => item.isAvailable
-        );
-
-        setFoodItems(availableItems);
-      } catch (error) {
-        console.error("Error fetching food items:", error);
-      }
-    };
-
-    fetchFoodItems();
-  }, [isLoggedIn, userRole]);
-
-  // =====================================================
-  // ADD TO CART
-  // =====================================================
-
-  const addToCart = (item) => {
-    const token = localStorage.getItem("token");
-
-    if (!token) {
-      alert("Please login first to order food.");
-      return;
-    }
-
-    const existingCart =
-      JSON.parse(localStorage.getItem("cart")) || [];
-
-    const existingItemIndex = existingCart.findIndex(
-      (cartItem) => cartItem._id === item._id
-    );
-
-    if (existingItemIndex !== -1) {
-      existingCart[existingItemIndex].quantity += 1;
-    } else {
-      existingCart.push({
-        ...item,
-        quantity: 1,
-      });
-    }
-
-    localStorage.setItem(
-      "cart",
-      JSON.stringify(existingCart)
-    );
-
-    window.dispatchEvent(new Event("cartUpdated"));
-
-    alert(`${item.name} added to cart!`);
-  };
-
-  // =====================================================
-  // CATEGORIES
-  // =====================================================
-
-  const categories = [
-    "All",
-    "Breakfast",
-    "Lunch",
-    "Snacks",
-    "Beverages",
-    "Fast Food",
+  const features = [
+    {
+      icon: "⚡",
+      number: "01",
+      title: "Quick Pre-Ordering",
+      description:
+        "Browse the menu and place your order before reaching the counter.",
+      color: "#ffb36b",
+      background: "rgba(255,179,107,0.11)",
+    },
+    {
+      icon: "🎟️",
+      number: "02",
+      title: "Smart Token System",
+      description:
+        "Receive a unique order token and make your food pickup easier.",
+      color: "#91e5c0",
+      background: "rgba(83,214,160,0.10)",
+    },
+    {
+      icon: "💳",
+      number: "03",
+      title: "Online Checkout",
+      description:
+        "Complete your order through the integrated payment experience.",
+      color: "#b8b5ff",
+      background: "rgba(153,146,255,0.12)",
+    },
+    {
+      icon: "📡",
+      number: "04",
+      title: "Order Tracking",
+      description:
+        "Follow your order status and know when it is ready for pickup.",
+      color: "#91d9ff",
+      background: "rgba(85,190,255,0.11)",
+    },
   ];
 
-  // =====================================================
-  // FILTER FOOD
-  // =====================================================
+  const steps = [
+    {
+      number: "01",
+      icon: "🧭",
+      title: "Explore",
+      text: "Choose a food court and explore its available menu.",
+    },
+    {
+      number: "02",
+      icon: "🛒",
+      title: "Place Order",
+      text: "Select your favourites and review your cart.",
+    },
+    {
+      number: "03",
+      icon: "💳",
+      title: "Checkout",
+      text: "Complete the payment process for your order.",
+    },
+    {
+      number: "04",
+      icon: "🎟️",
+      title: "Pick Up",
+      text: "Use your order token to collect your food.",
+    },
+  ];
 
-  const filteredItems = foodItems.filter((item) => {
-    const matchesSearch = item.name
-      .toLowerCase()
-      .includes(search.toLowerCase());
+  const getPrimaryAction = () => {
+    if (!isLoggedIn) {
+      return (
+        <Link to="/login/student" className="cb-home-primary">
+          Get Started <span>↗</span>
+        </Link>
+      );
+    }
 
-    const matchesCategory =
-      category === "All" || item.category === category;
+    if (userRole === "student") {
+      return (
+        <Link to="/canteen-menu" className="cb-home-primary">
+          Explore Food Courts <span>↗</span>
+        </Link>
+      );
+    }
 
-    return matchesSearch && matchesCategory;
-  });
+    if (userRole === "staff") {
+      return (
+        <Link to="/staff/dashboard" className="cb-home-primary">
+          Open Staff Dashboard <span>↗</span>
+        </Link>
+      );
+    }
 
-  // =====================================================
-  // FOOD SECTION
-  // =====================================================
+    if (userRole === "admin") {
+      return (
+        <Link to="/admin/dashboard" className="cb-home-primary">
+          Open Admin Dashboard <span>↗</span>
+        </Link>
+      );
+    }
 
-  const showFoodSection =
-    !isLoggedIn || userRole === "student";
+    return (
+      <Link to="/canteen-menu" className="cb-home-primary">
+        Explore Menu <span>↗</span>
+      </Link>
+    );
+  };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#f5f8fc",
-      }}
-    >
-      {/* ================================================= */}
-      {/* HERO SECTION */}
-      {/* ================================================= */}
+    <div className="cb-home">
 
-      <section
-        className="hero-section"
-        style={{
-          borderRadius: 0,
-          marginBottom: 0,
-          minHeight: "520px",
-          display: "flex",
-          alignItems: "center",
-        }}
-      >
-        <div className="container py-5">
-          <div className="row align-items-center">
+      {/* ==================================================
+          PAGE STYLES
+      ================================================== */}
 
-            {/* LEFT */}
+      <style>{`
+        .cb-home {
+          --cb-bg: #0b1220;
+          --cb-panel: #111c2f;
+          --cb-text: #f6f7fb;
+          --cb-muted: #9ba8bd;
+          --cb-orange: #ffad68;
+          --cb-border: rgba(255,255,255,.09);
+
+          background: #f6f7fb;
+          color: #172238;
+          font-family: Inter, "Segoe UI", Arial, sans-serif;
+          overflow: hidden;
+        }
+
+        .cb-home * {
+          box-sizing: border-box;
+        }
+
+        .cb-home a {
+          text-decoration: none;
+        }
+
+        .cb-home-container {
+          width: 100%;
+          max-width: 1200px;
+          margin: 0 auto;
+          padding-left: 26px;
+          padding-right: 26px;
+        }
+
+        .cb-home-hero {
+          position: relative;
+          overflow: hidden;
+          color: #fff;
+          background:
+            radial-gradient(
+              ellipse at 80% 35%,
+              rgba(87, 111, 183, .23),
+              transparent 38%
+            ),
+            radial-gradient(
+              ellipse at 12% 0%,
+              rgba(255, 173, 104, .11),
+              transparent 35%
+            ),
+            linear-gradient(130deg, #0b1220, #111e34 58%, #192544);
+        }
+
+        .cb-home-hero::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          opacity: .17;
+          pointer-events: none;
+          background-image:
+            linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+          background-size: 46px 46px;
+          mask-image: linear-gradient(to bottom, black, transparent 95%);
+        }
+
+        .cb-home-hero-content {
+          position: relative;
+          z-index: 1;
+          padding-top: 86px;
+          padding-bottom: 108px;
+        }
+
+        .cb-home-eyebrow {
+          display: inline-flex;
+          align-items: center;
+          gap: 9px;
+          padding: 9px 13px;
+          border: 1px solid rgba(255,173,104,.23);
+          border-radius: 999px;
+          background: rgba(255,173,104,.08);
+          color: #ffc38f;
+          font-size: 10px;
+          font-weight: 850;
+          letter-spacing: 1.7px;
+        }
+
+        .cb-home-title {
+          margin: 25px 0 20px;
+          max-width: 700px;
+          font-size: clamp(42px, 6vw, 76px);
+          line-height: 1.055;
+          letter-spacing: -3.4px;
+          font-weight: 900;
+        }
+
+        .cb-home-title-accent {
+          color: #ffb477;
+          background: linear-gradient(100deg, #ffd0a0, #ff9252);
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        .cb-home-description {
+          max-width: 550px;
+          color: #aebbd0;
+          font-size: 15px;
+          line-height: 1.95;
+          margin-bottom: 29px;
+        }
+
+        .cb-home-primary {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 20px;
+          min-height: 51px;
+          padding: 0 20px;
+          border: 1px solid transparent;
+          border-radius: 13px;
+          background: linear-gradient(135deg, #ffc58e, #ff9457);
+          color: #172033 !important;
+          font-size: 13px;
+          font-weight: 900;
+          box-shadow: 0 9px 25px rgba(255,146,87,.16);
+          transition: transform .2s ease, box-shadow .2s ease;
+        }
+
+        .cb-home-primary:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 14px 30px rgba(255,146,87,.25);
+        }
+
+        .cb-home-secondary {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 9px;
+          min-height: 51px;
+          padding: 0 18px;
+          border: 1px solid rgba(255,255,255,.16);
+          border-radius: 13px;
+          color: #f1f4fa !important;
+          background: rgba(255,255,255,.045);
+          font-size: 13px;
+          font-weight: 750;
+          transition: background .2s ease;
+        }
+
+        .cb-home-secondary:hover {
+          background: rgba(255,255,255,.10);
+        }
+
+        .cb-home-visual {
+          position: relative;
+          max-width: 400px;
+          margin: 0 auto;
+          padding: 17px;
+          border: 1px solid rgba(255,255,255,.14);
+          border-radius: 32px;
+          background: linear-gradient(
+            145deg,
+            rgba(255,255,255,.105),
+            rgba(255,255,255,.025)
+          );
+          box-shadow: 0 35px 85px rgba(0,0,0,.22);
+          backdrop-filter: blur(16px);
+          transform: rotate(1.5deg);
+        }
+
+        .cb-home-visual-inner {
+          min-height: 340px;
+          padding: 26px;
+          border: 1px solid rgba(255,255,255,.06);
+          border-radius: 23px;
+          background: linear-gradient(155deg, #1c2b44, #121c30);
+        }
+
+        .cb-home-visual-label {
+          color: #9baac0;
+          font-size: 10px;
+          font-weight: 850;
+          letter-spacing: 1.5px;
+        }
+
+        .cb-home-food-art {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 160px;
+          margin: 15px 0;
+          border: 1px solid rgba(255,255,255,.07);
+          border-radius: 20px;
+          background:
+            radial-gradient(circle, rgba(255,177,111,.14), transparent 70%),
+            rgba(255,255,255,.025);
+          font-size: 92px;
+        }
+
+        .cb-home-token {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 15px;
+          border: 1px solid rgba(255,255,255,.09);
+          border-radius: 15px;
+          background: rgba(255,255,255,.035);
+        }
+
+        .cb-home-status-dot {
+          width: 8px;
+          height: 8px;
+          display: inline-block;
+          border-radius: 50%;
+          background: #61dba7;
+          box-shadow: 0 0 12px rgba(97,219,167,.55);
+        }
+
+        .cb-home-floating {
+          position: absolute;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 13px 15px;
+          border: 1px solid rgba(255,255,255,.12);
+          border-radius: 15px;
+          background: rgba(21,33,54,.93);
+          color: #f4f6fb;
+          box-shadow: 0 15px 40px rgba(0,0,0,.22);
+          backdrop-filter: blur(14px);
+        }
+
+        .cb-home-floating-one {
+          top: 36px;
+          right: -23px;
+        }
+
+        .cb-home-floating-two {
+          bottom: 35px;
+          left: -27px;
+        }
+
+        .cb-home-statbar {
+          position: relative;
+          z-index: 2;
+          margin-top: -37px;
+        }
+
+        .cb-home-stat {
+          height: 100%;
+          padding: 23px 19px;
+          border: 1px solid #e9edf4;
+          border-radius: 19px;
+          background: #fff;
+          box-shadow: 0 13px 35px rgba(19,35,64,.055);
+        }
+
+        .cb-home-stat-icon {
+          width: 43px;
+          height: 43px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 13px;
+          background: #fff2e7;
+          font-size: 20px;
+          margin-bottom: 16px;
+        }
+
+        .cb-home-stat-title {
+          color: #1a2941;
+          font-size: 14px;
+          font-weight: 850;
+          margin-bottom: 6px;
+        }
+
+        .cb-home-stat-text {
+          color: #8490a2;
+          font-size: 12px;
+          line-height: 1.7;
+          margin: 0;
+        }
+
+        .cb-home-section {
+          padding-top: 88px;
+          padding-bottom: 88px;
+        }
+
+        .cb-home-section-kicker {
+          color: #d77e42;
+          font-size: 10px;
+          font-weight: 900;
+          letter-spacing: 2px;
+          margin-bottom: 12px;
+        }
+
+        .cb-home-section-title {
+          color: #172238;
+          font-size: clamp(29px, 4vw, 43px);
+          line-height: 1.2;
+          font-weight: 900;
+          letter-spacing: -1.6px;
+          margin-bottom: 14px;
+        }
+
+        .cb-home-section-description {
+          max-width: 610px;
+          color: #7e8a9d;
+          font-size: 14px;
+          line-height: 1.9;
+          margin: 0 auto;
+        }
+
+        .cb-home-feature {
+          height: 100%;
+          min-height: 250px;
+          padding: 27px;
+          border: 1px solid #e9edf4;
+          border-radius: 22px;
+          background: #fff;
+          transition: transform .22s ease, box-shadow .22s ease;
+        }
+
+        .cb-home-feature:hover {
+          transform: translateY(-5px);
+          box-shadow: 0 20px 45px rgba(24,40,70,.08);
+        }
+
+        .cb-home-feature-top {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 29px;
+        }
+
+        .cb-home-feature-icon {
+          width: 54px;
+          height: 54px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 17px;
+          font-size: 25px;
+        }
+
+        .cb-home-feature-number {
+          color: #a7afbd;
+          font-size: 12px;
+          font-weight: 850;
+          letter-spacing: 1px;
+        }
+
+        .cb-home-feature h3 {
+          color: #1b2940;
+          font-size: 17px;
+          font-weight: 900;
+          margin-bottom: 11px;
+        }
+
+        .cb-home-feature p {
+          color: #7e8a9d;
+          font-size: 13px;
+          line-height: 1.85;
+          margin-bottom: 0;
+        }
+
+        .cb-home-process {
+          background: #fff;
+          border-top: 1px solid #edf0f5;
+          border-bottom: 1px solid #edf0f5;
+        }
+
+        .cb-home-step {
+          position: relative;
+          height: 100%;
+          padding: 24px;
+          border: 1px solid #edf0f5;
+          border-radius: 19px;
+          background: #fafbfe;
+        }
+
+        .cb-home-step-number {
+          color: #df874e;
+          font-size: 11px;
+          font-weight: 900;
+          letter-spacing: 1px;
+        }
+
+        .cb-home-step-icon {
+          margin: 22px 0 17px;
+          font-size: 32px;
+        }
+
+        .cb-home-step h3 {
+          font-size: 16px;
+          font-weight: 900;
+          margin-bottom: 9px;
+        }
+
+        .cb-home-step p {
+          color: #7e8a9d;
+          font-size: 12px;
+          line-height: 1.8;
+          margin: 0;
+        }
+
+        .cb-home-cta {
+          position: relative;
+          overflow: hidden;
+          padding: 66px 25px;
+          color: #fff;
+          text-align: center;
+          background:
+            radial-gradient(circle at 15% 50%, rgba(255,178,112,.13), transparent 25%),
+            radial-gradient(circle at 85% 20%, rgba(126,151,255,.15), transparent 28%),
+            linear-gradient(125deg,#111b30,#1c2c4b);
+        }
+
+        .cb-home-footer {
+          background: #0a1120;
+          color: #f6f7fb;
+          padding: 43px 26px 0;
+        }
+
+        .cb-home-footer-link {
+          color: #a5b2c7;
+          font-size: 13px;
+          text-decoration: none;
+          transition: color .2s ease;
+        }
+
+        .cb-home-footer-link:hover {
+          color: #ffbd83;
+        }
+
+        .cb-home-footer-bottom {
+          border-top: 1px solid rgba(255,255,255,.09);
+          margin-top: 31px;
+          padding: 20px 0;
+          color: #8997ae;
+          font-size: 11px;
+        }
+
+        .cb-home-developer {
+          border-top: 1px solid rgba(255,255,255,.07);
+          padding: 21px 0 25px;
+          text-align: center;
+        }
+
+        @media (max-width: 991px) {
+          .cb-home-hero-content {
+            padding-top: 67px;
+            padding-bottom: 80px;
+          }
+
+          .cb-home-title {
+            letter-spacing: -2px;
+          }
+
+          .cb-home-visual {
+            max-width: 355px;
+            margin-top: 32px;
+          }
+
+          .cb-home-section {
+            padding-top: 68px;
+            padding-bottom: 68px;
+          }
+
+          .cb-home-floating-one {
+            right: -8px;
+          }
+
+          .cb-home-floating-two {
+            left: -8px;
+          }
+        }
+
+        @media (max-width: 575px) {
+          .cb-home-container {
+            padding-left: 19px;
+            padding-right: 19px;
+          }
+
+          .cb-home-hero-content {
+            padding-top: 54px;
+            padding-bottom: 72px;
+          }
+
+          .cb-home-title {
+            font-size: 43px;
+            letter-spacing: -2.1px;
+          }
+
+          .cb-home-description {
+            font-size: 13px;
+          }
+
+          .cb-home-visual-inner {
+            min-height: 305px;
+            padding: 20px;
+          }
+
+          .cb-home-food-art {
+            min-height: 130px;
+            font-size: 78px;
+          }
+
+          .cb-home-floating {
+            padding: 10px 11px;
+            font-size: 11px;
+          }
+
+          .cb-home-floating-one {
+            top: 20px;
+            right: -5px;
+          }
+
+          .cb-home-floating-two {
+            bottom: 17px;
+            left: -5px;
+          }
+
+          .cb-home-section {
+            padding-top: 58px;
+            padding-bottom: 58px;
+          }
+
+          .cb-home-feature {
+            min-height: auto;
+            padding: 22px;
+          }
+
+          .cb-home-stat {
+            padding: 17px 14px;
+          }
+
+          .cb-home-stat-icon {
+            margin-bottom: 12px;
+          }
+
+          .cb-home-footer {
+            padding-left: 20px;
+            padding-right: 20px;
+          }
+        }
+      `}</style>
+
+      {/* ==================================================
+          HERO SECTION
+      ================================================== */}
+
+      <section className="cb-home-hero">
+        <div className="cb-home-container cb-home-hero-content">
+          <div className="row align-items-center g-5">
+
+            {/* LEFT CONTENT */}
 
             <div className="col-lg-7">
-              <div className="mb-3">
-                <span className="badge bg-warning text-dark px-3 py-2">
-                  ⚡ SMART CANTEEN
-                </span>
+              <div className="cb-home-eyebrow">
+                <span>✦</span>
+                CAMPUS BITE
+                <span style={{ opacity: 0.45 }}>/</span>
+                SMART FOOD EXPERIENCE
               </div>
 
-              <h1
-                className="fw-bold display-4 text-white"
-                style={{
-                  lineHeight: 1.1,
-                  maxWidth: "700px",
-                }}
-              >
-                Order Food.
+              <h1 className="cb-home-title">
+                Your campus.
                 <br />
-                Skip The Queue. 🍔
+                Your cravings.
+                <br />
+                <span className="cb-home-title-accent">
+                  Your way.
+                </span>
               </h1>
 
-              <p
-                className="mt-4 mb-4 text-white"
-                style={{
-                  maxWidth: "650px",
-                  fontSize: "18px",
-                  lineHeight: 1.7,
-                  opacity: 0.9,
-                }}
-              >
-                A smart digital canteen experience for
-                students. Pre-order your favorite food,
-                make a secure online payment and collect
-                your order using your unique token number.
+              <p className="cb-home-description">
+                Meet a smarter way to enjoy campus food. Discover
+                food courts, order ahead, get your token and spend
+                less time waiting in queues.
               </p>
 
-              {/* HERO BUTTONS */}
-
               <div className="d-flex flex-wrap gap-3">
+                {getPrimaryAction()}
 
+                {!isLoggedIn && (
+                  <Link
+                    to="/register/student"
+                    className="cb-home-secondary"
+                  >
+                    Create Account <span>↗</span>
+                  </Link>
+                )}
+
+                {isLoggedIn && userRole === "student" && (
+                  <Link
+                    to="/my-orders"
+                    className="cb-home-secondary"
+                  >
+                    My Orders <span>↗</span>
+                  </Link>
+                )}
+
+                {isLoggedIn &&
+                  userRole !== "student" &&
+                  userRole !== "admin" &&
+                  userRole !== "staff" && (
+                    <Link
+                      to="/canteen-menu"
+                      className="cb-home-secondary"
+                    >
+                      Browse Menu <span>↗</span>
+                    </Link>
+                  )}
+              </div>
+
+              <div
+                className="d-flex flex-wrap gap-4 mt-4 pt-2"
+                style={{
+                  color: "#9eacc1",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                }}
+              >
+                <span>✓ Easy ordering</span>
+                <span>✓ Smart tokens</span>
+                <span>✓ Convenient pickup</span>
+              </div>
+            </div>
+
+            {/* RIGHT VISUAL */}
+
+            <div className="col-lg-5">
+              <div className="cb-home-visual">
+
+                <div className="cb-home-visual-inner">
+                  <div className="d-flex justify-content-between align-items-center">
+                    <div>
+                      <div className="cb-home-visual-label">
+                        THE CAMPUS EXPERIENCE
+                      </div>
+
+                      <div
+                        style={{
+                          color: "#fff",
+                          fontSize: "18px",
+                          fontWeight: 900,
+                          marginTop: "7px",
+                        }}
+                      >
+                        Made for your day.
+                      </div>
+                    </div>
+
+                    <span
+                      style={{
+                        width: "38px",
+                        height: "38px",
+                        borderRadius: "12px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: "rgba(255,173,104,.12)",
+                        fontSize: "20px",
+                      }}
+                    >
+                      ✦
+                    </span>
+                  </div>
+
+                  <div className="cb-home-food-art">
+                    🍔
+                  </div>
+
+                  <div className="cb-home-token">
+                    <div>
+                      <div
+                        style={{
+                          color: "#8e9db5",
+                          fontSize: "10px",
+                          fontWeight: 800,
+                          letterSpacing: "1px",
+                        }}
+                      >
+                        YOUR NEXT ORDER
+                      </div>
+
+                      <div
+                        style={{
+                          color: "#fff",
+                          fontWeight: 850,
+                          fontSize: "13px",
+                          marginTop: "6px",
+                        }}
+                      >
+                        Simple. Smart. Convenient.
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        width: "37px",
+                        height: "37px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderRadius: "12px",
+                        background: "rgba(255,255,255,.07)",
+                        fontSize: "18px",
+                      }}
+                    >
+                      🎟️
+                    </div>
+                  </div>
+                </div>
+
+                {/* FLOATING STATUS CARD */}
+
+                <div className="cb-home-floating cb-home-floating-one">
+                  <span style={{ fontSize: "23px" }}>⚡</span>
+
+                  <div>
+                    <div
+                      style={{
+                        fontSize: "11px",
+                        fontWeight: 900,
+                      }}
+                    >
+                      Quick Ordering
+                    </div>
+
+                    <div
+                      style={{
+                        color: "#a8b5c9",
+                        fontSize: "10px",
+                        marginTop: "3px",
+                      }}
+                    >
+                      A smarter routine
+                    </div>
+                  </div>
+                </div>
+
+                <div className="cb-home-floating cb-home-floating-two">
+                  <span style={{ fontSize: "22px" }}>🎟️</span>
+
+                  <div>
+                    <div
+                      style={{
+                        fontSize: "11px",
+                        fontWeight: 900,
+                      }}
+                    >
+                      Smart Token
+                    </div>
+
+                    <div
+                      style={{
+                        color: "#a8b5c9",
+                        fontSize: "10px",
+                        marginTop: "3px",
+                      }}
+                    >
+                      Easy order pickup
+                    </div>
+                  </div>
+
+                  <span className="cb-home-status-dot" />
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* ==================================================
+          QUICK HIGHLIGHTS
+      ================================================== */}
+
+      <section className="cb-home-statbar">
+        <div className="cb-home-container">
+          <div className="row g-3">
+
+            <div className="col-6 col-lg-3">
+              <div className="cb-home-stat">
+                <div className="cb-home-stat-icon">🍽️</div>
+                <div className="cb-home-stat-title">
+                  Multiple Food Courts
+                </div>
+                <p className="cb-home-stat-text">
+                  Discover campus food spots in one place.
+                </p>
+              </div>
+            </div>
+
+            <div className="col-6 col-lg-3">
+              <div className="cb-home-stat">
+                <div className="cb-home-stat-icon">⚡</div>
+                <div className="cb-home-stat-title">
+                  Easy Pre-Order
+                </div>
+                <p className="cb-home-stat-text">
+                  Order in advance with a few simple steps.
+                </p>
+              </div>
+            </div>
+
+            <div className="col-6 col-lg-3">
+              <div className="cb-home-stat">
+                <div className="cb-home-stat-icon">🎟️</div>
+                <div className="cb-home-stat-title">
+                  Digital Tokens
+                </div>
+                <p className="cb-home-stat-text">
+                  Use your order token for convenient pickup.
+                </p>
+              </div>
+            </div>
+
+            <div className="col-6 col-lg-3">
+              <div className="cb-home-stat">
+                <div className="cb-home-stat-icon">📦</div>
+                <div className="cb-home-stat-title">
+                  Order Tracking
+                </div>
+                <p className="cb-home-stat-text">
+                  Check the progress of your placed orders.
+                </p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* ==================================================
+          FEATURES
+      ================================================== */}
+
+      <section className="cb-home-section">
+        <div className="cb-home-container">
+
+          <div className="text-center mb-5">
+            <div className="cb-home-section-kicker">
+              THE CAMPUS BITE ADVANTAGE
+            </div>
+
+            <h2 className="cb-home-section-title">
+              More than just ordering.
+              <br />
+              <span style={{ color: "#d98248" }}>
+                A better experience.
+              </span>
+            </h2>
+
+            <p className="cb-home-section-description">
+              Everything comes together in one convenient platform,
+              designed around the way your campus works.
+            </p>
+          </div>
+
+          <div className="row g-4">
+            {features.map((feature) => (
+              <div
+                className="col-sm-6 col-lg-3"
+                key={feature.number}
+              >
+                <article className="cb-home-feature">
+
+                  <div className="cb-home-feature-top">
+                    <div
+                      className="cb-home-feature-icon"
+                      style={{
+                        background: feature.background,
+                        color: feature.color,
+                      }}
+                    >
+                      {feature.icon}
+                    </div>
+
+                    <span className="cb-home-feature-number">
+                      {feature.number}
+                    </span>
+                  </div>
+
+                  <h3>{feature.title}</h3>
+
+                  <p>{feature.description}</p>
+
+                </article>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ==================================================
+          HOW IT WORKS
+      ================================================== */}
+
+      <section className="cb-home-process">
+        <div
+          className="cb-home-container"
+          style={{
+            paddingTop: "79px",
+            paddingBottom: "79px",
+          }}
+        >
+
+          <div className="text-center mb-5">
+            <div className="cb-home-section-kicker">
+              SIMPLE BY DESIGN
+            </div>
+
+            <h2 className="cb-home-section-title">
+              From craving to collection.
+            </h2>
+
+            <p className="cb-home-section-description">
+              Four simple steps. A smoother campus food experience.
+            </p>
+          </div>
+
+          <div className="row g-3">
+            {steps.map((step) => (
+              <div
+                className="col-6 col-lg-3"
+                key={step.number}
+              >
+                <article className="cb-home-step">
+
+                  <div className="cb-home-step-number">
+                    STEP {step.number}
+                  </div>
+
+                  <div className="cb-home-step-icon">
+                    {step.icon}
+                  </div>
+
+                  <h3>{step.title}</h3>
+
+                  <p>{step.text}</p>
+
+                </article>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ==================================================
+          CALL TO ACTION
+      ================================================== */}
+
+      <section className="cb-home-cta">
+        <div className="cb-home-container">
+
+          <div
+            style={{
+              fontSize: "34px",
+              marginBottom: "18px",
+            }}
+          >
+            ✦
+          </div>
+
+          <div
+            style={{
+              color: "#ffbd83",
+              fontSize: "10px",
+              fontWeight: 900,
+              letterSpacing: "2px",
+              marginBottom: "14px",
+            }}
+          >
+            YOUR NEXT CAMPUS FAVOURITE AWAITS
+          </div>
+
+          <h2
+            style={{
+              fontSize: "clamp(30px,4vw,45px)",
+              lineHeight: 1.2,
+              fontWeight: 900,
+              letterSpacing: "-1.5px",
+              marginBottom: "15px",
+            }}
+          >
+            Make every break a little better.
+          </h2>
+
+          <p
+            style={{
+              maxWidth: "560px",
+              margin: "0 auto 27px",
+              color: "#aebbd0",
+              fontSize: "14px",
+              lineHeight: 1.9,
+            }}
+          >
+            Spend less time waiting and more time enjoying your day.
+            Your smarter campus food experience starts here.
+          </p>
+
+          <div className="d-flex flex-wrap justify-content-center gap-3">
+            {getPrimaryAction()}
+
+            {!isLoggedIn && (
+              <Link
+                to="/register/student"
+                className="cb-home-secondary"
+              >
+                Create Your Account ↗
+              </Link>
+            )}
+
+            {isLoggedIn && userRole === "student" && (
+              <Link
+                to="/my-orders"
+                className="cb-home-secondary"
+              >
+                Track My Orders ↗
+              </Link>
+            )}
+          </div>
+
+        </div>
+      </section>
+
+      {/* ==================================================
+          PROFESSIONAL FOOTER
+      ================================================== */}
+
+      <footer className="cb-home-footer">
+        <div className="cb-home-container">
+
+          <div className="row g-4">
+
+            {/* BRAND */}
+
+            <div className="col-lg-6 col-md-7">
+              <Link
+                to="/"
+                className="d-inline-flex align-items-center gap-3 mb-3"
+                style={{ color: "#fff" }}
+              >
+                <span
+                  style={{
+                    width: "47px",
+                    height: "47px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: "15px",
+                    background:
+                      "linear-gradient(135deg,#ffd09d,#ff955b)",
+                    fontSize: "24px",
+                  }}
+                >
+                  🍔
+                </span>
+
+                <span
+                  style={{
+                    fontSize: "25px",
+                    fontWeight: 900,
+                    letterSpacing: "-1px",
+                  }}
+                >
+                  Campus<span style={{ color: "#ffb477" }}>Bite</span>
+                </span>
+              </Link>
+
+              <p
+                style={{
+                  maxWidth: "405px",
+                  color: "#9ba8bd",
+                  fontSize: "13px",
+                  lineHeight: 1.9,
+                }}
+              >
+                A smarter campus food ordering platform built to
+                simplify pre-orders, token generation and pickup.
+              </p>
+
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  border: "1px solid rgba(255,255,255,.10)",
+                  borderRadius: "999px",
+                  padding: "9px 12px",
+                  color: "#b5c2d5",
+                  fontSize: "10px",
+                  fontWeight: 800,
+                  letterSpacing: ".7px",
+                }}
+              >
+                <span style={{ color: "#5cdda6" }}>●</span>
+                SMART PRE-ORDER & TOKEN SYSTEM
+              </div>
+            </div>
+
+            {/* QUICK LINKS */}
+
+            <div className="col-6 col-md-2">
+              <h6
+                style={{
+                  color: "#fff",
+                  fontSize: "12px",
+                  fontWeight: 900,
+                  letterSpacing: "1px",
+                  marginBottom: "19px",
+                }}
+              >
+                EXPLORE
+              </h6>
+
+              <div className="d-flex flex-column gap-3">
+                <Link to="/" className="cb-home-footer-link">
+                  Home
+                </Link>
+
+                <Link
+                  to="/canteen-menu"
+                  className="cb-home-footer-link"
+                >
+                  Food Courts
+                </Link>
+
+                <Link to="/cart" className="cb-home-footer-link">
+                  My Cart
+                </Link>
+
+                <Link
+                  to="/my-orders"
+                  className="cb-home-footer-link"
+                >
+                  My Orders
+                </Link>
+              </div>
+            </div>
+
+            {/* ACCOUNT */}
+
+            <div className="col-6 col-md-4 col-lg-3">
+              <h6
+                style={{
+                  color: "#fff",
+                  fontSize: "12px",
+                  fontWeight: 900,
+                  letterSpacing: "1px",
+                  marginBottom: "19px",
+                }}
+              >
+                YOUR ACCOUNT
+              </h6>
+
+              <div className="d-flex flex-column gap-3">
                 {!isLoggedIn && (
                   <>
                     <Link
                       to="/login/student"
-                      className="btn btn-warning btn-lg fw-bold px-4"
+                      className="cb-home-footer-link"
                     >
-                      🔐 Login & Order
+                      Student Login
                     </Link>
 
                     <Link
                       to="/register/student"
-                      className="btn btn-outline-light btn-lg px-4"
+                      className="cb-home-footer-link"
                     >
-                      📝 Create Account
+                      Create Account
                     </Link>
                   </>
                 )}
 
                 {isLoggedIn && userRole === "student" && (
-                  <>
-                    <Link
-                      to="/canteen-menu"
-                      className="btn btn-warning btn-lg fw-bold px-4"
-                    >
-                      🍔 Order Food
-                    </Link>
-
-                    <Link
-                      to="/my-orders"
-                      className="btn btn-outline-light btn-lg px-4"
-                    >
-                      📦 Track Orders
-                    </Link>
-                  </>
+                  <Link
+                    to="/my-orders"
+                    className="cb-home-footer-link"
+                  >
+                    Track Your Orders
+                  </Link>
                 )}
 
                 {isLoggedIn && userRole === "staff" && (
                   <Link
                     to="/staff/dashboard"
-                    className="btn btn-warning btn-lg fw-bold px-4"
+                    className="cb-home-footer-link"
                   >
-                    👨‍🍳 Open Staff Dashboard
+                    Staff Dashboard
                   </Link>
                 )}
 
                 {isLoggedIn && userRole === "admin" && (
                   <Link
                     to="/admin/dashboard"
-                    className="btn btn-warning btn-lg fw-bold px-4"
+                    className="cb-home-footer-link"
                   >
-                    📊 Open Admin Dashboard
+                    Admin Dashboard
                   </Link>
                 )}
 
-              </div>
-            </div>
-
-            {/* RIGHT */}
-
-            <div className="col-lg-5 text-center mt-5 mt-lg-0">
-              <div
-                style={{
-                  background: "rgba(255,255,255,0.10)",
-                  border: "1px solid rgba(255,255,255,0.15)",
-                  borderRadius: "30px",
-                  padding: "45px 25px",
-                  backdropFilter: "blur(8px)",
-                  boxShadow:
-                    "0 20px 50px rgba(0,0,0,0.15)",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: "120px",
-                    lineHeight: 1,
-                  }}
-                >
-                  🍔
-                </div>
-
-                <h4 className="fw-bold text-white mt-4">
-                  Your Token. Your Turn.
-                </h4>
-
-                <p
-                  className="text-white mb-0"
-                  style={{ opacity: 0.8 }}
-                >
-                  Order smart. Wait less.
-                </p>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* ================================================= */}
-      {/* QUICK STATS */}
-      {/* ================================================= */}
-
-      <section
-        className="container"
-        style={{
-          marginTop: "-45px",
-          position: "relative",
-          zIndex: 2,
-        }}
-      >
-        <div className="row g-3">
-
-          <div className="col-6 col-lg-3">
-            <div className="card text-center p-3 h-100">
-              <div style={{ fontSize: "30px" }}>🍔</div>
-              <h6 className="fw-bold mt-2 mb-1">
-                Fresh Food
-              </h6>
-              <small className="text-muted">
-                Multiple categories
-              </small>
-            </div>
-          </div>
-
-          <div className="col-6 col-lg-3">
-            <div className="card text-center p-3 h-100">
-              <div style={{ fontSize: "30px" }}>🎫</div>
-              <h6 className="fw-bold mt-2 mb-1">
-                Smart Token
-              </h6>
-              <small className="text-muted">
-                Automatic token generation
-              </small>
-            </div>
-          </div>
-
-          <div className="col-6 col-lg-3">
-            <div className="card text-center p-3 h-100">
-              <div style={{ fontSize: "30px" }}>💳</div>
-              <h6 className="fw-bold mt-2 mb-1">
-                Online Payment
-              </h6>
-              <small className="text-muted">
-                Secure Razorpay checkout
-              </small>
-            </div>
-          </div>
-
-          <div className="col-6 col-lg-3">
-            <div className="card text-center p-3 h-100">
-              <div style={{ fontSize: "30px" }}>🔔</div>
-              <h6 className="fw-bold mt-2 mb-1">
-                Live Updates
-              </h6>
-              <small className="text-muted">
-                Real-time order status
-              </small>
-            </div>
-          </div>
-
-        </div>
-      </section>
-
-      {/* ================================================= */}
-      {/* FEATURES */}
-      {/* ================================================= */}
-
-      <section className="container py-5">
-
-        <div className="text-center mb-5">
-          <span className="badge bg-primary px-3 py-2">
-            WHY SMART CANTEEN?
-          </span>
-
-          <h2 className="fw-bold mt-3">
-            A Smarter Way To Order Food
-          </h2>
-
-          <p className="text-muted">
-            Everything you need for a faster and easier
-            canteen experience.
-          </p>
-        </div>
-
-        <div className="row g-4">
-
-          <div className="col-md-4">
-            <div className="card h-100 text-center p-4">
-
-              <div style={{ fontSize: "48px" }}>
-                📱
-              </div>
-
-              <h5 className="fw-bold mt-3">
-                Easy Pre-Order
-              </h5>
-
-              <p className="text-muted mb-0">
-                Browse the canteen menu and place your
-                order before reaching the counter.
-              </p>
-
-            </div>
-          </div>
-
-          <div className="col-md-4">
-            <div className="card h-100 text-center p-4">
-
-              <div style={{ fontSize: "48px" }}>
-                🎫
-              </div>
-
-              <h5 className="fw-bold mt-3">
-                Smart Token System
-              </h5>
-
-              <p className="text-muted mb-0">
-                Every successful order receives a unique
-                token number for easy collection.
-              </p>
-
-            </div>
-          </div>
-
-          <div className="col-md-4">
-            <div className="card h-100 text-center p-4">
-
-              <div style={{ fontSize: "48px" }}>
-                🔔
-              </div>
-
-              <h5 className="fw-bold mt-3">
-                Real-Time Tracking
-              </h5>
-
-              <p className="text-muted mb-0">
-                Receive instant updates when your order
-                moves from Pending to Completed.
-              </p>
-
-            </div>
-          </div>
-
-        </div>
-
-      </section>
-
-      {/* ================================================= */}
-      {/* POPULAR MENU */}
-      {/* ================================================= */}
-
-      {showFoodSection && (
-        <section className="container pb-5">
-
-          <div className="text-center mb-4">
-
-            <span className="badge bg-primary px-3 py-2">
-              OUR MENU
-            </span>
-
-            <h2 className="fw-bold mt-3">
-              Popular Food Items 🍴
-            </h2>
-
-            <p className="text-muted">
-              Choose your favorite food and add it to
-              your cart.
-            </p>
-
-          </div>
-
-          {/* SEARCH */}
-
-          <div className="row justify-content-center mb-4">
-
-            <div className="col-md-7">
-
-              <div className="input-group input-group-lg">
-
-                <span className="input-group-text bg-white">
-                  🔎
+                <span className="cb-home-footer-link">
+                  Smart Token Pickup
                 </span>
-
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Search food items..."
-                  value={search}
-                  onChange={(e) =>
-                    setSearch(e.target.value)
-                  }
-                />
-
               </div>
-
             </div>
 
           </div>
 
-          {/* CATEGORIES */}
-
-          <div className="d-flex justify-content-center flex-wrap gap-2 mb-5">
-
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                className={`btn ${
-                  category === cat
-                    ? "btn-primary"
-                    : "btn-outline-primary"
-                }`}
-                onClick={() => setCategory(cat)}
-              >
-                {cat}
-              </button>
-            ))}
-
-          </div>
-
-          {/* FOOD CARDS */}
-
-          <div className="row g-4">
-
-            {filteredItems
-              .slice(0, 6)
-              .map((item) => (
-
-                <div
-                  className="col-sm-6 col-lg-4"
-                  key={item._id}
-                >
-
-                  <div className="card h-100 overflow-hidden">
-
-                    {/* IMAGE */}
-
-                    <div
-                      style={{
-                        height: "200px",
-                        background: "#eef2f7",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        overflow: "hidden",
-                      }}
-                    >
-
-                      {item.imageUrl ? (
-                        <img
-                          src={getImageUrl(item.imageUrl)}
-                          alt={item.name}
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                          }}
-                          onError={(e) => {
-                            e.currentTarget.style.display = "none";
-
-                            const fallback =
-                              e.currentTarget.parentElement?.querySelector(
-                                ".home-food-image-fallback"
-                              );
-
-                            if (fallback) {
-                              fallback.style.display = "flex";
-                            }
-                          }}
-                        />
-                      ) : (
-                        <span
-                          className="home-food-image-fallback"
-                          style={{
-                            display: "flex",
-                            width: "100%",
-                            height: "100%",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: "75px",
-                          }}
-                        >
-                          🍽️
-                        </span>
-                      )}
-
-                      {item.imageUrl && (
-                        <span
-                          className="home-food-image-fallback"
-                          style={{
-                            display: "none",
-                            width: "100%",
-                            height: "100%",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: "75px",
-                          }}
-                        >
-                          🍽️
-                        </span>
-                      )}
-
-                    </div>
-
-                    {/* BODY */}
-
-                    <div className="card-body p-4">
-
-                      <div className="d-flex justify-content-between align-items-start gap-2">
-
-                        <h5 className="fw-bold mb-2">
-                          {item.name}
-                        </h5>
-
-                        <span className="badge bg-light text-dark">
-                          {item.category}
-                        </span>
-
-                      </div>
-
-                      <p
-                        className="text-muted"
-                        style={{
-                          minHeight: "48px",
-                        }}
-                      >
-                        {item.description ||
-                          "Freshly prepared from our canteen."}
-                      </p>
-
-                      <div className="d-flex justify-content-between align-items-center mt-3">
-
-                        <div>
-
-                          <small className="text-muted d-block">
-                            Price
-                          </small>
-
-                          <span className="text-success fw-bold fs-5">
-                            ₹{item.price}
-                          </span>
-
-                        </div>
-
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          onClick={() =>
-                            addToCart(item)
-                          }
-                        >
-                          🛒 Add
-                        </button>
-
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-              ))}
-
-          </div>
-
-          {/* NO FOOD */}
-
-          {filteredItems.length === 0 && (
-            <div className="text-center py-5">
-
-              <div style={{ fontSize: "60px" }}>
-                🍽️
-              </div>
-
-              <h5 className="mt-3 fw-bold">
-                No food items found
-              </h5>
-
-              <p className="text-muted">
-                Try another search or category.
-              </p>
-
-            </div>
-          )}
-
-          {/* FULL MENU */}
-
-          {foodItems.length > 6 && (
-            <div className="text-center mt-5">
-
-              <Link
-                to="/canteen-menu"
-                className="btn btn-outline-primary btn-lg px-4"
-              >
-                View Full Menu →
-              </Link>
-
-            </div>
-          )}
-
-        </section>
-      )}
-
-      {/* ================================================= */}
-      {/* STAFF */}
-      {/* ================================================= */}
-
-      {isLoggedIn && userRole === "staff" && (
-        <section className="container py-5">
-
-          <div className="card text-center p-5">
-
-            <div style={{ fontSize: "65px" }}>
-              👨‍🍳
-            </div>
-
-            <h3 className="fw-bold mt-3">
-              Staff Order Management
-            </h3>
-
-            <p className="text-muted">
-              Manage incoming student orders, update
-              order status and control the live token queue.
-            </p>
-
-            <div>
-              <Link
-                to="/staff/dashboard"
-                className="btn btn-primary btn-lg px-4"
-              >
-                📦 Open Orders Dashboard →
-              </Link>
-            </div>
-
-          </div>
-
-        </section>
-      )}
-
-      {/* ================================================= */}
-      {/* ADMIN */}
-      {/* ================================================= */}
-
-      {isLoggedIn && userRole === "admin" && (
-        <section className="container py-5">
-
-          <div className="card text-center p-5">
-
-            <div style={{ fontSize: "65px" }}>
-              📊
-            </div>
-
-            <h3 className="fw-bold mt-3">
-              Admin Control Center
-            </h3>
-
-            <p className="text-muted">
-              Manage food items, orders, staff and the
-              Smart Canteen system from one dashboard.
-            </p>
-
-            <div>
-              <Link
-                to="/admin/dashboard"
-                className="btn btn-primary btn-lg px-4"
-              >
-                📊 Open Admin Dashboard →
-              </Link>
-            </div>
-
-          </div>
-
-        </section>
-      )}
-
-      {/* ================================================= */}
-      {/* HOW IT WORKS */}
-      {/* ================================================= */}
-
-      <section className="bg-white py-5">
-
-        <div className="container">
-
-          <div className="text-center mb-5">
-
-            <span className="badge bg-success px-3 py-2">
-              HOW IT WORKS
+          {/* COPYRIGHT */}
+
+          <div className="cb-home-footer-bottom d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span>
+              © {new Date().getFullYear()} Campus Bite. All rights reserved.
             </span>
 
-            <h2 className="fw-bold mt-3">
-              Order in 4 Simple Steps
-            </h2>
-
-            <p className="text-muted">
-              From selecting food to collecting your order.
-            </p>
-
-          </div>
-
-          <div className="row g-4">
-
-            <div className="col-md-3">
-              <div className="text-center h-100">
-
-                <div
-                  style={{
-                    fontSize: "45px",
-                  }}
-                >
-                  1️⃣
-                </div>
-
-                <h5 className="fw-bold mt-3">
-                  Select Food
-                </h5>
-
-                <p className="text-muted">
-                  Browse the menu and select your
-                  favorite food.
-                </p>
-
-              </div>
-            </div>
-
-            <div className="col-md-3">
-              <div className="text-center h-100">
-
-                <div
-                  style={{
-                    fontSize: "45px",
-                  }}
-                >
-                  2️⃣
-                </div>
-
-                <h5 className="fw-bold mt-3">
-                  Add to Cart
-                </h5>
-
-                <p className="text-muted">
-                  Select quantities and review your
-                  cart.
-                </p>
-
-              </div>
-            </div>
-
-            <div className="col-md-3">
-              <div className="text-center h-100">
-
-                <div
-                  style={{
-                    fontSize: "45px",
-                  }}
-                >
-                  3️⃣
-                </div>
-
-                <h5 className="fw-bold mt-3">
-                  Pay & Get Token
-                </h5>
-
-                <p className="text-muted">
-                  Complete online payment and receive
-                  your token.
-                </p>
-
-              </div>
-            </div>
-
-            <div className="col-md-3">
-              <div className="text-center h-100">
-
-                <div
-                  style={{
-                    fontSize: "45px",
-                  }}
-                >
-                  4️⃣
-                </div>
-
-                <h5 className="fw-bold mt-3">
-                  Collect Food
-                </h5>
-
-                <p className="text-muted">
-                  Collect your order when the status
-                  becomes Ready.
-                </p>
-
-              </div>
-            </div>
-
-          </div>
-
-        </div>
-
-      </section>
-
-      {/* ================================================= */}
-      {/* CTA */}
-      {/* ================================================= */}
-
-      <section
-        className="py-5 text-center text-white"
-        style={{
-          background:
-            "linear-gradient(135deg, #198754, #20c997)",
-        }}
-      >
-
-        <div className="container">
-
-          <div style={{ fontSize: "45px" }}>
-            🍔
-          </div>
-
-          <h2 className="fw-bold mt-2">
-            Hungry? Let's Order!
-          </h2>
-
-          <p className="mb-4">
-            Skip the queue and enjoy a smarter canteen
-            experience.
-          </p>
-
-          {!isLoggedIn && (
-            <div className="d-flex justify-content-center gap-3 flex-wrap">
-
-              <Link
-                to="/login/student"
-                className="btn btn-light btn-lg px-5 fw-bold"
-              >
-                🔐 Login
-              </Link>
-
-              <Link
-                to="/register/student"
-                className="btn btn-outline-light btn-lg px-5 fw-bold"
-              >
-                📝 Register
-              </Link>
-
-            </div>
-          )}
-
-          {isLoggedIn && userRole === "student" && (
-            <Link
-              to="/canteen-menu"
-              className="btn btn-light btn-lg px-5 fw-bold"
-            >
-              🍔 Start Ordering →
-            </Link>
-          )}
-
-          {isLoggedIn && userRole === "staff" && (
-            <Link
-              to="/staff/dashboard"
-              className="btn btn-light btn-lg px-5 fw-bold"
-            >
-              👨‍🍳 Manage Orders →
-            </Link>
-          )}
-
-          {isLoggedIn && userRole === "admin" && (
-            <Link
-              to="/admin/dashboard"
-              className="btn btn-light btn-lg px-5 fw-bold"
-            >
-              📊 Admin Dashboard →
-            </Link>
-          )}
-
-        </div>
-
-      </section>
-
-      {/* ================================================= */}
-      {/* PROJECT INFORMATION */}
-      {/* ================================================= */}
-
-      <section
-        className="py-5"
-        style={{
-          background:
-            "linear-gradient(135deg, #eef5ff, #f7fbff)",
-        }}
-      >
-        <div className="container">
-
-          <div className="text-center mb-4">
-            <span className="badge bg-primary px-3 py-2">
-              ✨ CAMPUS BITE
+            <span>
+              Built for a smarter campus experience.
             </span>
+          </div>
 
-            <h2 className="fw-bold mt-3 mb-2">
-              Smart Food. Less Waiting.
-            </h2>
+          {/* DEVELOPER CREDIT — LAST ELEMENT */}
 
-            <p
-              className="text-muted mb-0"
-              style={{ maxWidth: "650px", margin: "0 auto" }}
+          <div className="cb-home-developer">
+            <div
+              style={{
+                color: "#8796ad",
+                fontSize: "9px",
+                fontWeight: 900,
+                letterSpacing: "2.3px",
+                marginBottom: "8px",
+              }}
             >
-              A simple digital canteen experience designed
-              to make campus food ordering faster and easier.
-            </p>
-          </div>
-
-          <div className="row g-3 align-items-stretch">
-
-            {/* COMPACT DEVELOPER INFORMATION */}
-            <div className="col-lg-5">
-              <div
-                className="card h-100 border-0 shadow-sm"
-                style={{
-                  borderRadius: "18px",
-                  overflow: "hidden",
-                }}
-              >
-                <div className="card-body p-4">
-
-                  <div className="d-flex align-items-center gap-3">
-
-                    <div
-                      style={{
-                        width: "58px",
-                        height: "58px",
-                        minWidth: "58px",
-                        borderRadius: "16px",
-                        background:
-                          "linear-gradient(135deg, #073b7a, #0d6efd)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "#fff",
-                        fontSize: "25px",
-                        boxShadow:
-                          "0 8px 20px rgba(13,110,253,0.20)",
-                      }}
-                    >
-                      👨‍💻
-                    </div>
-
-                    <div>
-                      <small className="text-primary fw-semibold">
-                        PROJECT DEVELOPER
-                      </small>
-
-                      <h5 className="fw-bold mb-0 mt-1">
-                        Mohd Altamash
-                      </h5>
-
-                      <small className="text-muted">
-                        MCA • Campus Bite
-                      </small>
-                    </div>
-
-                  </div>
-
-                  <hr className="my-3" />
-
-                  <div className="d-flex flex-wrap gap-2">
-
-                    <span className="badge bg-light text-dark px-3 py-2">
-                      ⚛️ React
-                    </span>
-
-                    <span className="badge bg-light text-dark px-3 py-2">
-                      🟢 Node.js
-                    </span>
-
-                    <span className="badge bg-light text-dark px-3 py-2">
-                      🍃 MongoDB
-                    </span>
-
-                    <span className="badge bg-light text-dark px-3 py-2">
-                      💳 Razorpay
-                    </span>
-
-                  </div>
-
-                  <p className="text-muted small mt-3 mb-0">
-                    Digital Food Ordering & Service Platform
-                  </p>
-
-                </div>
-              </div>
+              DESIGNED & DEVELOPED BY
             </div>
 
-            {/* ATTRACTIVE PROJECT HIGHLIGHTS */}
-            <div className="col-lg-7">
-              <div className="row g-3 h-100">
-
-                <div className="col-sm-6">
-                  <div
-                    className="card h-100 border-0 shadow-sm"
-                    style={{ borderRadius: "18px" }}
-                  >
-                    <div className="card-body p-4">
-                      <div
-                        style={{
-                          width: "46px",
-                          height: "46px",
-                          borderRadius: "14px",
-                          background: "#e8f1ff",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "22px",
-                        }}
-                      >
-                        ⚡
-                      </div>
-
-                      <h6 className="fw-bold mt-3 mb-2">
-                        Quick Pre-Order
-                      </h6>
-
-                      <p className="text-muted small mb-0">
-                        Select food, add it to cart and place
-                        your order before reaching the counter.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-sm-6">
-                  <div
-                    className="card h-100 border-0 shadow-sm"
-                    style={{ borderRadius: "18px" }}
-                  >
-                    <div className="card-body p-4">
-                      <div
-                        style={{
-                          width: "46px",
-                          height: "46px",
-                          borderRadius: "14px",
-                          background: "#eafaf2",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "22px",
-                        }}
-                      >
-                        🎫
-                      </div>
-
-                      <h6 className="fw-bold mt-3 mb-2">
-                        Smart Token
-                      </h6>
-
-                      <p className="text-muted small mb-0">
-                        Get a unique token after successful
-                        payment for easy pickup.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-sm-6">
-                  <div
-                    className="card h-100 border-0 shadow-sm"
-                    style={{ borderRadius: "18px" }}
-                  >
-                    <div className="card-body p-4">
-                      <div
-                        style={{
-                          width: "46px",
-                          height: "46px",
-                          borderRadius: "14px",
-                          background: "#fff5df",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "22px",
-                        }}
-                      >
-                        💳
-                      </div>
-
-                      <h6 className="fw-bold mt-3 mb-2">
-                        Secure Checkout
-                      </h6>
-
-                      <p className="text-muted small mb-0">
-                        Complete your food order using
-                        the integrated online payment flow.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-sm-6">
-                  <div
-                    className="card h-100 border-0 shadow-sm"
-                    style={{ borderRadius: "18px" }}
-                  >
-                    <div className="card-body p-4">
-                      <div
-                        style={{
-                          width: "46px",
-                          height: "46px",
-                          borderRadius: "14px",
-                          background: "#f1eaff",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "22px",
-                        }}
-                      >
-                        🔔
-                      </div>
-
-                      <h6 className="fw-bold mt-3 mb-2">
-                        Live Order Updates
-                      </h6>
-
-                      <p className="text-muted small mb-0">
-                        Track your order status from pending
-                        to ready and completed.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
+            <div
+              style={{
+                color: "#fff",
+                fontSize: "17px",
+                fontWeight: 900,
+                letterSpacing: ".3px",
+              }}
+            >
+              Mohd <span style={{ color: "#ffb477" }}>Altamash</span>
             </div>
 
+            <div
+              style={{
+                color: "#7f8ba0",
+                fontSize: "10px",
+                marginTop: "6px",
+              }}
+            >
+              MCA · Campus Bite Project
+            </div>
           </div>
 
         </div>
-      </section>
-
-      {/* ================================================= */}
-      {/* FOOTER */}
-      {/* ================================================= */}
-
-      <footer className="py-4">
-
-        <div className="container text-center">
-
-          <div
-            style={{
-              fontSize: "28px",
-            }}
-          >
-            🍴
-          </div>
-
-          <h5 className="fw-bold mt-2">
-            Smart Canteen
-          </h5>
-
-          <p className="text-white-50 mb-2">
-            Pre-Order & Token Management System
-          </p>
-
-          <div
-            className="small text-white-50"
-            style={{
-              maxWidth: "650px",
-              margin: "0 auto",
-            }}
-          >
-            A digital solution designed to simplify
-            campus canteen ordering, payment and
-            token-based food collection.
-          </div>
-
-          <hr
-            className="my-3"
-            style={{
-              borderColor:
-                "rgba(255,255,255,0.15)",
-            }}
-          />
-
-          <small className="text-white-50">
-            © 2026 Smart Canteen System • Developed by
-            Mohd Altamash
-          </small>
-
-        </div>
-
       </footer>
 
     </div>

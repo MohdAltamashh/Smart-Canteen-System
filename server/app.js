@@ -23,6 +23,7 @@ const authRoutes = require("./routes/auth");
 const foodRoutes = require("./routes/food");
 const orderRoutes = require("./routes/order");
 const paymentRoutes = require("./routes/payment");
+const publicFoodCourtsRoutes = require("./routes/publicFoodCourts");
 
 
 // =====================================================
@@ -226,6 +227,10 @@ app.use(
   foodRoutes
 );
 
+app.use(
+  "/api/public/food-courts",
+  publicFoodCourtsRoutes
+);
 
 app.use(
   "/api/orders",

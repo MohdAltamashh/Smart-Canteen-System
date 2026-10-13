@@ -14,10 +14,7 @@ const Login = ({ setIsLoggedIn, onLoginSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // =====================================================
   // LOGIN
-  // =====================================================
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -45,19 +42,17 @@ const Login = ({ setIsLoggedIn, onLoginSuccess }) => {
 
       localStorage.setItem("token", token);
 
-      setIsLoggedIn(true);
+      if (setIsLoggedIn) {
+        setIsLoggedIn(true);
+      }
 
-      window.dispatchEvent(
-        new Event("authChanged")
-      );
+      window.dispatchEvent(new Event("authChanged"));
 
       if (onLoginSuccess) {
         onLoginSuccess(
           response?.data
             ? response
-            : {
-                data: response,
-              },
+            : { data: response },
           history
         );
 
@@ -71,327 +66,827 @@ const Login = ({ setIsLoggedIn, onLoginSuccess }) => {
       } else {
         history.push("/");
       }
-
     } catch (err) {
       console.error("Login error:", err);
 
       setError(
         err?.response?.data?.message ||
-        err?.message ||
-        "Login failed"
+          err?.message ||
+          "Login failed. Please try again."
       );
     } finally {
       setLoading(false);
     }
   };
 
-  // =====================================================
-  // REGISTER
-  // =====================================================
-
-  const goToRegister = () => {
-    history.push(`/register/${role}`);
-  };
-
-  // =====================================================
-  // UI
-  // =====================================================
-
+ 
   return (
-    <div className="auth-page">
+    <div className="campus-login">
+      <style>{`
+        .campus-login {
+          --cl-bg: #080d18;
+          --cl-blue: #3984ff;
+          --cl-orange: #ffad66;
+          --cl-muted: #a4b1c5;
 
-      <div className="auth-container">
+          min-height: 100vh;
+          width: 100%;
+          padding: 28px 20px;
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+          isolation: isolate;
+          overflow-x: hidden;
+          color: #f8fafc;
+          background:
+            radial-gradient(
+              ellipse at 12% 15%,
+              rgba(38,99,235,.20),
+              transparent 38%
+            ),
+            radial-gradient(
+              ellipse at 90% 85%,
+              rgba(255,157,86,.09),
+              transparent 30%
+            ),
+            var(--cl-bg);
+          font-family:
+            Inter, -apple-system, BlinkMacSystemFont,
+            "Segoe UI", sans-serif;
+        }
 
-        {/* ================================================= */}
-        {/* BRAND / INTRO */}
-        {/* ================================================= */}
+        .campus-login *,
+        .campus-login *::before,
+        .campus-login *::after {
+          box-sizing: border-box;
+        }
 
-        <div className="auth-intro">
+        .cl-header,
+        .cl-layout,
+        .cl-footer {
+          width: 100%;
+          max-width: 1040px;
+        }
 
-          <div className="auth-logo">
-            🎟️
+        .cl-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 15px;
+          margin-bottom: 22px;
+        }
+
+        .cl-brand {
+          display: flex;
+          align-items: center;
+          gap: 11px;
+          min-width: 0;
+        }
+
+        .cl-logo {
+          width: 46px;
+          height: 46px;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid rgba(93,153,255,.3);
+          border-radius: 14px;
+          background: rgba(57,132,255,.13);
+          font-size: 24px;
+        }
+
+        .cl-brand-name {
+          font-size: 20px;
+          line-height: 1.2;
+          font-weight: 850;
+          color: #fff;
+        }
+
+        .cl-brand-name span {
+          color: var(--cl-orange);
+        }
+
+        .cl-brand-tagline {
+          margin-top: 5px;
+          font-size: 9px;
+          font-weight: 750;
+          letter-spacing: 1.4px;
+          color: var(--cl-muted);
+        }
+
+        .cl-home-button {
+          border: 1px solid rgba(255,255,255,.14);
+          border-radius: 10px;
+          padding: 10px 15px;
+          color: #f8fafc;
+          background: rgba(255,255,255,.045);
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: 750;
+          white-space: nowrap;
+          transition: .2s ease;
+        }
+
+        .cl-home-button:hover {
+          border-color: var(--cl-orange);
+          color: var(--cl-orange);
+        }
+
+        .cl-layout {
+          display: grid;
+          grid-template-columns: minmax(0,.9fr) minmax(0,1.1fr);
+          align-items: stretch;
+          border: 1px solid rgba(255,255,255,.13);
+          border-radius: 22px;
+          overflow: hidden;
+          background: #0d1728;
+          box-shadow: 0 28px 85px rgba(0,0,0,.35);
+        }
+
+        .cl-intro {
+          min-width: 0;
+          padding: 42px 32px;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          background:
+            radial-gradient(
+              circle at 5% 95%,
+              rgba(255,173,102,.10),
+              transparent 38%
+            ),
+            linear-gradient(145deg,#172b49,#0c1729);
+          border-right: 1px solid rgba(255,255,255,.10);
+        }
+
+        .cl-badge {
+          width: fit-content;
+          max-width: 100%;
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          margin-bottom: 23px;
+          padding: 8px 11px;
+          border: 1px solid rgba(255,173,102,.25);
+          border-radius: 30px;
+          background: rgba(255,173,102,.07);
+          color: #ffd0a7;
+          font-size: 9px;
+          font-weight: 800;
+          letter-spacing: 1.2px;
+        }
+
+        .cl-dot {
+          width: 6px;
+          height: 6px;
+          flex-shrink: 0;
+          border-radius: 50%;
+          background: var(--cl-orange);
+        }
+
+        .cl-intro h1 {
+          margin: 0 0 17px;
+          color: #fff;
+          font-size: clamp(30px,3.3vw,42px);
+          line-height: 1.12;
+          letter-spacing: -1.5px;
+          font-weight: 900;
+        }
+
+        .cl-intro h1 span {
+          color: var(--cl-orange);
+        }
+
+        .cl-intro-description {
+          margin: 0 0 27px;
+          color: #b1bfd3;
+          font-size: 12px;
+          line-height: 1.9;
+        }
+
+        .cl-feature-list {
+          display: grid;
+          gap: 18px;
+        }
+
+        .cl-feature {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          min-width: 0;
+        }
+
+        .cl-feature-icon {
+          width: 42px;
+          height: 42px;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid rgba(86,146,255,.20);
+          border-radius: 12px;
+          background: rgba(57,132,255,.10);
+          font-size: 19px;
+        }
+
+        .cl-feature-title {
+          color: #f8fafc;
+          font-size: 12px;
+          font-weight: 800;
+          margin-bottom: 4px;
+        }
+
+        .cl-feature-text {
+          color: #99abc3;
+          font-size: 10px;
+          line-height: 1.6;
+        }
+
+        .cl-form-panel {
+          min-width: 0;
+          padding: 36px clamp(20px,3.5vw,42px);
+          background: rgba(10,18,32,.92);
+        }
+
+        .cl-form-title {
+          margin: 0 0 8px;
+          color: #fff;
+          font-size: 27px;
+          font-weight: 850;
+          letter-spacing: -.8px;
+        }
+
+        .cl-form-subtitle {
+          margin: 0;
+          color: var(--cl-muted);
+          font-size: 12px;
+          line-height: 1.8;
+        }
+
+        .cl-role-tabs {
+          display: grid;
+          grid-template-columns: repeat(3,minmax(0,1fr));
+          gap: 8px;
+          margin: 24px 0;
+        }
+
+        .cl-role-option {
+          min-width: 0;
+          min-height: 70px;
+          padding: 10px 5px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          border: 1px solid rgba(255,255,255,.12);
+          border-radius: 11px;
+          background: rgba(255,255,255,.035);
+          color: #a4b1c5;
+          font-family: inherit;
+          font-size: 10px;
+          font-weight: 750;
+          cursor: pointer;
+          transition: .2s ease;
+        }
+
+        .cl-role-option:hover {
+          border-color: rgba(57,132,255,.45);
+        }
+
+        .cl-role-option.active {
+          color: #fff;
+          border-color: rgba(57,132,255,.75);
+          background: rgba(57,132,255,.12);
+          box-shadow: inset 0 0 0 1px rgba(57,132,255,.12);
+        }
+
+        .cl-role-icon {
+          font-size: 20px;
+          line-height: 1;
+        }
+
+        .cl-field {
+          margin-bottom: 17px;
+        }
+
+        .cl-label {
+          display: block;
+          margin-bottom: 8px;
+          color: #dce6f5;
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: .8px;
+        }
+
+        .cl-input-wrap {
+          position: relative;
+        }
+
+        .cl-input-icon {
+          position: absolute;
+          left: 13px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: #92a5c0;
+          font-size: 15px;
+          pointer-events: none;
+        }
+
+        .cl-input {
+          display: block;
+          width: 100%;
+          height: 48px;
+          padding: 0 43px;
+          border: 1px solid rgba(255,255,255,.13);
+          border-radius: 10px;
+          outline: none;
+          color: #f8fafc;
+          background: rgba(255,255,255,.045);
+          font-family: inherit;
+          font-size: 12px;
+          transition: border-color .2s, box-shadow .2s;
+        }
+
+        .cl-input::placeholder {
+          color: #74869f;
+        }
+
+        .cl-input:focus {
+          border-color: var(--cl-blue);
+          box-shadow: 0 0 0 3px rgba(57,132,255,.12);
+        }
+
+        .cl-password-input {
+          padding-right: 47px;
+        }
+
+        .cl-eye {
+          position: absolute;
+          right: 11px;
+          top: 50%;
+          transform: translateY(-50%);
+          padding: 5px;
+          border: 0;
+          background: transparent;
+          color: #c1cede;
+          cursor: pointer;
+          font-size: 16px;
+        }
+
+        .cl-alert {
+          padding: 11px 13px;
+          margin-bottom: 16px;
+          border-radius: 9px;
+          font-size: 12px;
+          line-height: 1.6;
+          overflow-wrap: anywhere;
+        }
+
+        .cl-alert-error {
+          color: #ffb8c1;
+          background: rgba(225,29,72,.10);
+          border: 1px solid rgba(251,113,133,.25);
+        }
+
+        .cl-button {
+          width: 100%;
+          min-height: 48px;
+          padding: 12px 15px;
+          border: 1px solid rgba(255,255,255,.14);
+          border-radius: 10px;
+          color: #1b202b;
+          background: linear-gradient(105deg,#ffc17f,#ff9e5e);
+          box-shadow: 0 8px 22px rgba(255,158,94,.13);
+          font-family: inherit;
+          font-size: 12px;
+          font-weight: 900;
+          cursor: pointer;
+          transition: transform .2s, box-shadow .2s, opacity .2s;
+        }
+
+        .cl-button:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 11px 25px rgba(255,158,94,.22);
+        }
+
+        .cl-button:disabled {
+          opacity: .65;
+          cursor: not-allowed;
+        }
+
+        .cl-spinner {
+          display: inline-block;
+          width: 13px;
+          height: 13px;
+          margin-right: 8px;
+          vertical-align: -2px;
+          border: 2px solid rgba(27,32,43,.25);
+          border-top-color: #1b202b;
+          border-radius: 50%;
+          animation: cl-spin .7s linear infinite;
+        }
+
+        @keyframes cl-spin {
+          to { transform: rotate(360deg); }
+        }
+
+        .cl-register {
+          margin-top: 23px;
+          padding-top: 20px;
+          border-top: 1px solid rgba(255,255,255,.10);
+          text-align: center;
+        }
+
+        .cl-register-text {
+          margin-bottom: 13px;
+          color: #a4b1c5;
+          font-size: 11px;
+        }
+
+        .cl-register-button {
+          width: 100%;
+          min-height: 44px;
+          padding: 10px 14px;
+          border: 1px solid rgba(255,173,102,.32);
+          border-radius: 10px;
+          background: rgba(255,173,102,.055);
+          color: #ffc18e;
+          font-family: inherit;
+          font-size: 11px;
+          font-weight: 850;
+          cursor: pointer;
+          transition: .2s ease;
+        }
+
+        .cl-register-button:hover {
+          background: rgba(255,173,102,.12);
+          border-color: var(--cl-orange);
+        }
+
+        .cl-security {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          margin-top: 20px;
+          padding: 12px;
+          border: 1px solid rgba(57,132,255,.17);
+          border-radius: 10px;
+          background: rgba(57,132,255,.055);
+          color: #a4b4ca;
+          font-size: 10px;
+          line-height: 1.8;
+        }
+
+        .cl-security strong {
+          color: #e5edf8;
+        }
+
+        .cl-footer {
+          margin-top: 18px;
+          text-align: center;
+          color: #7789a2;
+          font-size: 10px;
+          line-height: 1.8;
+        }
+
+        @media (max-width: 760px) {
+          .campus-login {
+            padding: 20px 12px;
+            justify-content: flex-start;
+          }
+
+          .cl-header {
+            margin-bottom: 18px;
+          }
+
+          .cl-layout {
+            grid-template-columns: minmax(0,1fr);
+            max-width: 490px;
+          }
+
+          .cl-intro {
+            display: none;
+          }
+
+          .cl-form-panel {
+            padding: 28px 22px;
+          }
+
+          .cl-form-title {
+            font-size: 25px;
+          }
+        }
+
+        @media (max-width: 380px) {
+          .campus-login {
+            padding: 15px 9px;
+          }
+
+          .cl-brand-name {
+            font-size: 18px;
+          }
+
+          .cl-brand-tagline {
+            font-size: 8px;
+            letter-spacing: 1px;
+          }
+
+          .cl-home-button {
+            padding: 9px 11px;
+          }
+
+          .cl-form-panel {
+            padding: 23px 16px;
+          }
+
+          .cl-role-tabs {
+            gap: 5px;
+          }
+
+          .cl-role-option {
+            font-size: 9px;
+          }
+        }
+      `}</style>
+
+      {/* HEADER */}
+
+      <header className="cl-header">
+        <div className="cl-brand">
+          <div className="cl-logo">🍔</div>
+
+          <div>
+            <div className="cl-brand-name">
+              Campus <span>Bite</span>
+            </div>
+
+            <div className="cl-brand-tagline">
+              SMART PRE-ORDER · EASY PICKUP
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className="cl-home-button"
+          onClick={() => history.push("/")}
+        >
+          ← Home
+        </button>
+      </header>
+
+      {/* MAIN */}
+
+      <main className="cl-layout">
+        {/* INTRO */}
+
+        <section className="cl-intro">
+          <div className="cl-badge">
+            <span className="cl-dot" />
+            CAMPUS BITE / WELCOME BACK
           </div>
 
           <h1>
-            Smart Canteen
+            Your campus.
+            <br />
+            Your cravings.
+            <br />
+            <span>Your way.</span>
           </h1>
 
-          <p>
-            Smart ordering, digital tokens
-            and faster campus dining.
+          <p className="cl-intro-description">
+            Your campus food experience starts here.
+            Sign in to discover food courts, place
+            orders and pick up your favourites with
+            a smart digital token.
           </p>
 
-          <div className="auth-features">
+          <div className="cl-feature-list">
+            <div className="cl-feature">
+              <div className="cl-feature-icon">🍔</div>
 
-            <div>
-              🍔
-              <span>
-                Easy Food Ordering
-              </span>
+              <div>
+                <div className="cl-feature-title">
+                  Easy Food Ordering
+                </div>
+
+                <div className="cl-feature-text">
+                  Explore menus and order your favourites.
+                </div>
+              </div>
             </div>
 
-            <div>
-              🎟️
-              <span>
-                Digital Token System
-              </span>
+            <div className="cl-feature">
+              <div className="cl-feature-icon">🎟️</div>
+
+              <div>
+                <div className="cl-feature-title">
+                  Smart Digital Tokens
+                </div>
+
+                <div className="cl-feature-text">
+                  Skip the queue and enjoy easy pickup.
+                </div>
+              </div>
             </div>
 
-            <div>
-              🔔
-              <span>
-                Real-Time Order Updates
-              </span>
-            </div>
+            <div className="cl-feature">
+              <div className="cl-feature-icon">🔔</div>
 
+              <div>
+                <div className="cl-feature-title">
+                  Live Order Updates
+                </div>
+
+                <div className="cl-feature-text">
+                  Stay updated on your order status.
+                </div>
+              </div>
+            </div>
           </div>
+        </section>
 
-        </div>
+        {/* LOGIN FORM */}
 
-        {/* ================================================= */}
-        {/* LOGIN CARD */}
-        {/* ================================================= */}
+        <section className="cl-form-panel">
+          <h2 className="cl-form-title">
+            Welcome back.
+          </h2>
 
-        <div className="auth-card">
+          <p className="cl-form-subtitle">
+            Sign in to continue your Campus Bite experience.
+          </p>
 
-          <div className="text-center mb-4">
+          {/* ROLE SELECTOR */}
 
-            <div className="auth-card-icon">
-              🔐
-            </div>
+          <div className="cl-role-tabs">
+            <button
+              type="button"
+              className={`cl-role-option ${
+                role === "student" ? "active" : ""
+              }`}
+              onClick={() => setRole("student")}
+              aria-pressed={role === "student"}
+            >
+              <span className="cl-role-icon">🎓</span>
+              Student
+            </button>
 
-            <h2 className="fw-bold mb-1">
-              Welcome Back
-            </h2>
+            <button
+              type="button"
+              className={`cl-role-option ${
+                role === "staff" ? "active" : ""
+              }`}
+              onClick={() => setRole("staff")}
+              aria-pressed={role === "staff"}
+            >
+              <span className="cl-role-icon">👨‍🍳</span>
+              Staff
+            </button>
 
-            <p className="text-muted mb-0">
-              Login to your Smart Canteen account
-            </p>
-
+            <button
+              type="button"
+              className={`cl-role-option ${
+                role === "admin" ? "active" : ""
+              }`}
+              onClick={() => setRole("admin")}
+              aria-pressed={role === "admin"}
+            >
+              <span className="cl-role-icon">🛡️</span>
+              Admin
+            </button>
           </div>
-
-          {/* ================================================= */}
-          {/* ERROR */}
-          {/* ================================================= */}
 
           {error && (
             <div
-              className="alert alert-danger d-flex align-items-start"
+              className="cl-alert cl-alert-error"
               role="alert"
             >
-              <span className="me-2">
-                ⚠️
-              </span>
-
-              <div>
-                {error}
-              </div>
+              ⚠️ {error}
             </div>
           )}
 
-          {/* ================================================= */}
-          {/* FORM */}
-          {/* ================================================= */}
-
           <form onSubmit={handleSubmit}>
-
             {/* EMAIL */}
 
-            <div className="mb-3">
-
-              <label
-                htmlFor="loginEmail"
-                className="form-label fw-semibold"
-              >
-                Email Address
+            <div className="cl-field">
+              <label className="cl-label" htmlFor="cl-email">
+                EMAIL ADDRESS
               </label>
 
-              <div className="input-group">
-
-                <span className="input-group-text">
-                  📧
-                </span>
+              <div className="cl-input-wrap">
+                <span className="cl-input-icon">✉</span>
 
                 <input
-                  id="loginEmail"
+                  id="cl-email"
                   type="email"
-                  className="form-control"
+                  className="cl-input"
                   placeholder="Enter your email"
                   value={email}
-                  onChange={(e) =>
-                    setEmail(e.target.value)
-                  }
+                  onChange={(e) => setEmail(e.target.value)}
                   autoComplete="email"
                   required
                 />
-
               </div>
-
             </div>
 
             {/* PASSWORD */}
 
-            <div className="mb-3">
-
-              <label
-                htmlFor="loginPassword"
-                className="form-label fw-semibold"
-              >
-                Password
+            <div className="cl-field">
+              <label className="cl-label" htmlFor="cl-password">
+                PASSWORD
               </label>
 
-              <div className="input-group">
-
-                <span className="input-group-text">
-                  🔑
-                </span>
+              <div className="cl-input-wrap">
+                <span className="cl-input-icon">🔑</span>
 
                 <input
-                  id="loginPassword"
-                  type={
-                    showPassword
-                      ? "text"
-                      : "password"
-                  }
-                  className="form-control"
+                  id="cl-password"
+                  type={showPassword ? "text" : "password"}
+                  className="cl-input cl-password-input"
                   placeholder="Enter your password"
                   value={password}
-                  onChange={(e) =>
-                    setPassword(e.target.value)
-                  }
+                  onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
                   required
                 />
 
                 <button
                   type="button"
-                  className="btn btn-outline-secondary"
+                  className="cl-eye"
                   onClick={() =>
-                    setShowPassword(
-                      (previous) =>
-                        !previous
-                    )
+                    setShowPassword((previous) => !previous)
                   }
                   aria-label={
-                    showPassword
-                      ? "Hide password"
-                      : "Show password"
+                    showPassword ? "Hide password" : "Show password"
                   }
                 >
-                  {showPassword
-                    ? "🙈"
-                    : "👁️"}
+                  {showPassword ? "🙈" : "👁️"}
                 </button>
-
               </div>
-
-            </div>
-
-            {/* ROLE */}
-
-            <div className="mb-4">
-
-              <label
-                htmlFor="loginRole"
-                className="form-label fw-semibold"
-              >
-                Login As
-              </label>
-
-              <select
-                id="loginRole"
-                className="form-select"
-                value={role}
-                onChange={(e) =>
-                  setRole(e.target.value)
-                }
-              >
-
-                <option value="student">
-                  👨‍🎓 Student
-                </option>
-
-                <option value="staff">
-                  👨‍🍳 Faculty / Staff
-                </option>
-
-                <option value="admin">
-                  👨‍💼 Admin
-                </option>
-
-              </select>
-
             </div>
 
             {/* LOGIN BUTTON */}
 
             <button
               type="submit"
-              className="btn btn-primary w-100 py-2 fw-bold"
+              className="cl-button"
               disabled={loading}
             >
-
               {loading ? (
                 <>
-                  <span
-                    className="spinner-border spinner-border-sm me-2"
-                    role="status"
-                    aria-hidden="true"
-                  ></span>
-
+                  <span className="cl-spinner" />
                   Logging in...
                 </>
               ) : (
-                <>
-                  🔐 Login
-                </>
+                "Login to Campus Bite  →"
               )}
-
             </button>
-
           </form>
 
-          {/* ================================================= */}
           {/* REGISTER */}
-          {/* ================================================= */}
 
-          <div className="text-center mt-4 pt-3 border-top">
+          {role === "student" && (
+            <div className="cl-register">
+              <div className="cl-register-text">
+                New to Campus Bite?
+              </div>
 
-            <p className="text-muted mb-2">
-              Don't have an account?
-            </p>
+              <button
+                type="button"
+                className="cl-register-button"
+                onClick={() => history.push("/register/student")}
+              >
+                Create Student Account  ↗
+              </button>
+            </div>
+          )}
 
-            <button
-              type="button"
-              className="btn btn-outline-primary"
-              onClick={goToRegister}
-            >
-              📝 Create Student Account
-            </button>
-
-          </div>
-
-          {/* ================================================= */}
           {/* SECURITY */}
-          {/* ================================================= */}
 
-          <div className="auth-security mt-4">
+          <div className="cl-security">
+            <span>🔒</span>
 
             <span>
-              🔒
+              <strong>Secure sign in</strong>
+              <br />
+              Your login is handled by the Campus Bite
+              authentication system.
             </span>
-
-            <small>
-              Your login information is securely
-              handled by the application.
-            </small>
-
           </div>
+        </section>
+      </main>
 
-        </div>
-
-      </div>
-
+      <footer className="cl-footer">
+        © {new Date().getFullYear()} Campus Bite
+        <br />
+        SMART PRE-ORDER · EASY PICKUP
+      </footer>
     </div>
   );
 };

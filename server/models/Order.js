@@ -1,16 +1,9 @@
 const mongoose = require("mongoose");
 const canteenDB = require("../canteendb");
 
-// =====================================================
-// ORDER SCHEMA
-// =====================================================
-
 const orderSchema = new mongoose.Schema(
   {
-    // ===================================================
-    // ORDER ID
-    // ===================================================
-
+    // Unique order ID
     orderId: {
       type: String,
       required: true,
@@ -18,80 +11,86 @@ const orderSchema = new mongoose.Schema(
       trim: true,
     },
 
-    // ===================================================
-    // TOKEN NUMBER
-    // ===================================================
-
+    // Token displayed to the student and staff
     tokenNumber: {
       type: Number,
       required: true,
     },
 
-    // ===================================================
-    // STUDENT USER ID
-    // ===================================================
-
-    // ===================================================
-    // STUDENT USER
-    // ===================================================
-
+    // Student who placed the order
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
 
+    // Food Court responsible for this entire order
+    foodCourt: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "FoodCourt",
+      required: true,
+      index: true,
+    },
+
     studentName: {
       type: String,
       default: "",
+      trim: true,
     },
 
     studentEmail: {
       type: String,
       default: "",
+      trim: true,
+      lowercase: true,
     },
 
-    // ===================================================
-    // ORDER ITEMS
-    // ===================================================
+    // Items belonging to the same Food Court
+    items: {
+      type: [
+        {
+          foodItem: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "FoodItem",
+            required: true,
+          },
 
-    items: [
-      {
-        foodItem: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "FoodItem",
-          required: true,
-        },
+          name: {
+            type: String,
+            required: true,
+            trim: true,
+          },
 
-        name: {
-          type: String,
-          required: true,
-          trim: true,
-        },
+          price: {
+            type: Number,
+            required: true,
+            min: 0,
+          },
 
-        price: {
-          type: Number,
-          required: true,
-          min: 0,
-        },
+          quantity: {
+            type: Number,
+            required: true,
+            min: 1,
+            validate: {
+              validator: Number.isInteger,
+              message: "Quantity must be a whole number.",
+            },
+          },
 
-        quantity: {
-          type: Number,
-          required: true,
-          min: 1,
+          subtotal: {
+            type: Number,
+            required: true,
+            min: 0,
+          },
         },
-
-        subtotal: {
-          type: Number,
-          required: true,
-          min: 0,
+      ],
+      validate: {
+        validator: function (items) {
+          return Array.isArray(items) && items.length > 0;
         },
+        message: "An order must contain at least one item.",
       },
-    ],
-
-    // ===================================================
-    // TOTAL AMOUNT
-    // ===================================================
+    },
 
     totalAmount: {
       type: Number,
@@ -99,13 +98,8 @@ const orderSchema = new mongoose.Schema(
       min: 0,
     },
 
-    // ===================================================
-    // ORDER STATUS
-    // ===================================================
-
     status: {
       type: String,
-
       enum: [
         "Pending",
         "Preparing",
@@ -113,25 +107,14 @@ const orderSchema = new mongoose.Schema(
         "Completed",
         "Cancelled",
       ],
-
       default: "Pending",
     },
   },
-
   {
     timestamps: true,
   }
 );
 
-// =====================================================
-// SMART CANTEEN DATABASE MODEL
-// =====================================================
-
-// IMPORTANT:
-// Order model SmartCanteenDB connection par banega.
-// Isse orders SmartCanteenDB ke "orders" collection me save honge.
-
-module.exports = canteenDB.model(
-  "Order",
-  orderSchema
-);
+module.exports =
+  canteenDB.models.Order ||
+  canteenDB.model("Order", orderSchema);
