@@ -1,8 +1,8 @@
-
 const express = require("express");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const { v2: cloudinary } = require("cloudinary");
 
 const router = express.Router();
 
@@ -11,43 +11,31 @@ const FoodCourt = require("../models/FoodCourt");
 const User = require("../models/User");
 const authMiddleware = require("../middleware/authMiddleware");
 
-// =====================================================
-// UPLOAD FOLDER
-// =====================================================
+// ==========================================
+// CLOUDINARY CONFIGURATION
+// ==========================================
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
+// ==========================================
+// LEGACY IMAGE SUPPORT
+// Purani local images ke liye route preserve
+// ==========================================
 const uploadDir = path.join(__dirname, "../uploads/food");
 
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// =====================================================
-// MULTER STORAGE
-// =====================================================
+router.use("/uploads/food", express.static(uploadDir));
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-
-  filename: (req, file, cb) => {
-    const extension = path.extname(file.originalname);
-
-    const fileName =
-      "food-" +
-      Date.now() +
-      "-" +
-      Math.round(Math.random() * 1e9) +
-      extension;
-
-    cb(null, fileName);
-  },
-});
-
-// =====================================================
-// FILE FILTER
-// =====================================================
-
+// ==========================================
+// MULTER CONFIGURATION
+// Image disk par save nahi hogi
+// ==========================================
 const fileFilter = (req, file, cb) => {
   const allowedTypes = [
     "image/jpeg",
@@ -57,38 +45,61 @@ const fileFilter = (req, file, cb) => {
   ];
 
   if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error("Only JPG, JPEG, PNG and WEBP images are allowed."));
+    return cb(null, true);
   }
+
+  return cb(
+    new Error("Only JPG, JPEG, PNG and WEBP images are allowed.")
+  );
 };
 
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   fileFilter,
   limits: {
     fileSize: 5 * 1024 * 1024,
   },
 });
 
-// =====================================================
-// HELPER: REMOVE UPLOADED FILE
-// =====================================================
+// ==========================================
+// UPLOAD IMAGE TO CLOUDINARY
+// ==========================================
+const uploadToCloudinary = (buffer) =>
+  new Promise((resolve, reject) => {
+    if (
+      !process.env.CLOUDINARY_CLOUD_NAME ||
+      !process.env.CLOUDINARY_API_KEY ||
+      !process.env.CLOUDINARY_API_SECRET
+    ) {
+      return reject(
+        new Error("Cloudinary environment variables are missing.")
+      );
+    }
 
-const removeUploadedFile = (filename) => {
-  if (!filename) return;
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: "campus-bite/food",
+        resource_type: "image",
+      },
+      (error, result) => {
+        if (error) return reject(error);
 
-  const filePath = path.join(uploadDir, path.basename(filename));
+        if (!result || !result.secure_url) {
+          return reject(
+            new Error("Cloudinary image URL was not returned.")
+          );
+        }
 
-  if (fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
-  }
-};
+        resolve(result.secure_url);
+      }
+    );
 
-// =====================================================
+    stream.end(buffer);
+  });
+
+// ==========================================
 // HELPER: VALIDATE FOOD COURT
-// =====================================================
-
+// ==========================================
 const validateFoodCourt = async (foodCourtId) => {
   if (!foodCourtId) {
     return {
@@ -122,10 +133,9 @@ const validateFoodCourt = async (foodCourtId) => {
   };
 };
 
-// =====================================================
-// HELPER: VERIFY ADMIN OR ASSIGNED STAFF
-// =====================================================
-
+// ==========================================
+// HELPER: ADMIN / STAFF PERMISSIONS
+// ==========================================
 const getFoodManager = async (req) => {
   if (!req.user || !req.user.role) {
     return {
@@ -135,9 +145,7 @@ const getFoodManager = async (req) => {
     };
   }
 
-  // Admin can manage every active Food Court.
-  // Admin token uses id: "admin", so do not query User
-  // using that ID.
+  // Admin can manage all active Food Courts.
   if (req.user.role === "admin") {
     return {
       valid: true,
@@ -182,9 +190,9 @@ const getFoodManager = async (req) => {
     };
   }
 
-  const courtValidation = await validateFoodCourt(staff.foodCourt);
+  const validation = await validateFoodCourt(staff.foodCourt);
 
-  if (!courtValidation.valid) {
+  if (!validation.valid) {
     return {
       valid: false,
       status: 403,
@@ -195,24 +203,16 @@ const getFoodManager = async (req) => {
   return {
     valid: true,
     isAdmin: false,
-    foodCourtId: String(courtValidation.foodCourt._id),
-    foodCourtName: courtValidation.foodCourt.name,
+    foodCourtId: String(validation.foodCourt._id),
+    foodCourtName: validation.foodCourt.name,
   };
 };
 
-// =====================================================
-// SERVE FOOD IMAGES
-// Existing route preserved
-// =====================================================
-
-router.use("/uploads/food", express.static(uploadDir));
-
-// =====================================================
+// ==========================================
 // GET FOOD ITEMS
 // Public menu remains available.
 // Optional: /api/food?foodCourt=FOOD_COURT_ID
-// =====================================================
-
+// ==========================================
 router.get("/", async (req, res) => {
   try {
     const { foodCourt } = req.query;
@@ -242,12 +242,11 @@ router.get("/", async (req, res) => {
   }
 });
 
-// =====================================================
+// ==========================================
 // ADD NEW FOOD ITEM
 // Admin: any active court
 // Staff: assigned court only
-// =====================================================
-
+// ==========================================
 router.post(
   "/",
   authMiddleware,
@@ -257,8 +256,6 @@ router.post(
       const manager = await getFoodManager(req);
 
       if (!manager.valid) {
-        if (req.file) removeUploadedFile(req.file.filename);
-
         return res.status(manager.status).json({
           message: manager.message,
         });
@@ -275,8 +272,6 @@ router.post(
       } = req.body;
 
       if (!name || !String(name).trim()) {
-        if (req.file) removeUploadedFile(req.file.filename);
-
         return res.status(400).json({
           message: "Food name is required.",
         });
@@ -288,14 +283,11 @@ router.post(
         !Number.isFinite(Number(price)) ||
         Number(price) < 0
       ) {
-        if (req.file) removeUploadedFile(req.file.filename);
-
         return res.status(400).json({
           message: "Please enter a valid price.",
         });
       }
 
-      // Never trust the Food Court ID sent by staff.
       const selectedFoodCourt = manager.isAdmin
         ? foodCourt
         : manager.foodCourtId;
@@ -303,17 +295,17 @@ router.post(
       const validation = await validateFoodCourt(selectedFoodCourt);
 
       if (!validation.valid) {
-        if (req.file) removeUploadedFile(req.file.filename);
-
         return res.status(400).json({
           message: validation.message,
         });
       }
 
+      // Nayi file upload hui ho toh Cloudinary URL save hoga.
+      // URL diya gaya ho aur file nahi ho toh URL save hoga.
       let finalImageUrl = imageUrl || "";
 
       if (req.file) {
-        finalImageUrl = `/uploads/food/${req.file.filename}`;
+        finalImageUrl = await uploadToCloudinary(req.file.buffer);
       }
 
       const newFoodItem = new FoodItem({
@@ -341,8 +333,6 @@ router.post(
     } catch (error) {
       console.error("Error adding food item:", error);
 
-      if (req.file) removeUploadedFile(req.file.filename);
-
       return res.status(500).json({
         message: error.message || "Failed to add food item.",
       });
@@ -350,12 +340,11 @@ router.post(
   }
 );
 
-// =====================================================
+// ==========================================
 // UPDATE FOOD ITEM
 // Admin: any item
-// Staff: items belonging to assigned court only
-// =====================================================
-
+// Staff: assigned court items only
+// ==========================================
 router.put(
   "/:id",
   authMiddleware,
@@ -365,16 +354,12 @@ router.put(
       const manager = await getFoodManager(req);
 
       if (!manager.valid) {
-        if (req.file) removeUploadedFile(req.file.filename);
-
         return res.status(manager.status).json({
           message: manager.message,
         });
       }
 
       if (!/^[0-9a-fA-F]{24}$/.test(String(req.params.id))) {
-        if (req.file) removeUploadedFile(req.file.filename);
-
         return res.status(400).json({
           message: "Invalid food item ID.",
         });
@@ -383,22 +368,18 @@ router.put(
       const existingFoodItem = await FoodItem.findById(req.params.id);
 
       if (!existingFoodItem) {
-        if (req.file) removeUploadedFile(req.file.filename);
-
         return res.status(404).json({
           message: "Food item not found.",
         });
       }
 
-      // Staff cannot edit food from another court.
       if (
         !manager.isAdmin &&
         String(existingFoodItem.foodCourt || "") !== manager.foodCourtId
       ) {
-        if (req.file) removeUploadedFile(req.file.filename);
-
         return res.status(403).json({
-          message: "You can only edit food items from your assigned Food Court.",
+          message:
+            "You can only edit food items from your assigned Food Court.",
         });
       }
 
@@ -416,8 +397,6 @@ router.put(
 
       if (name !== undefined) {
         if (!String(name).trim()) {
-          if (req.file) removeUploadedFile(req.file.filename);
-
           return res.status(400).json({
             message: "Food name cannot be empty.",
           });
@@ -436,8 +415,6 @@ router.put(
 
       if (price !== undefined && price !== "") {
         if (!Number.isFinite(Number(price)) || Number(price) < 0) {
-          if (req.file) removeUploadedFile(req.file.filename);
-
           return res.status(400).json({
             message: "Please enter a valid price.",
           });
@@ -455,18 +432,15 @@ router.put(
       if (foodCourt !== undefined) {
         if (!manager.isAdmin) {
           if (String(foodCourt) !== manager.foodCourtId) {
-            if (req.file) removeUploadedFile(req.file.filename);
-
             return res.status(403).json({
-              message: "Staff cannot move food items to another Food Court.",
+              message:
+                "Staff cannot move food items to another Food Court.",
             });
           }
         } else {
           const validation = await validateFoodCourt(foodCourt);
 
           if (!validation.valid) {
-            if (req.file) removeUploadedFile(req.file.filename);
-
             return res.status(400).json({
               message: validation.message,
             });
@@ -476,8 +450,11 @@ router.put(
         }
       }
 
+      // Nayi image select ki hai toh Cloudinary par upload karo.
+      // Warna URL field bheji gayi ho toh use update karo.
+      // Dono na hon toh existing image ko preserve karo.
       if (req.file) {
-        updateData.imageUrl = `/uploads/food/${req.file.filename}`;
+        updateData.imageUrl = await uploadToCloudinary(req.file.buffer);
       } else if (imageUrl !== undefined) {
         updateData.imageUrl = imageUrl || "";
       }
@@ -491,23 +468,12 @@ router.put(
         }
       ).populate("foodCourt", "name");
 
-      // Delete the old uploaded image only after successful update.
-      if (
-        req.file &&
-        existingFoodItem.imageUrl &&
-        existingFoodItem.imageUrl.startsWith("/uploads/food/")
-      ) {
-        removeUploadedFile(path.basename(existingFoodItem.imageUrl));
-      }
-
       return res.status(200).json({
         message: "Food item updated successfully.",
         foodItem: updatedFoodItem,
       });
     } catch (error) {
       console.error("Error updating food item:", error);
-
-      if (req.file) removeUploadedFile(req.file.filename);
 
       return res.status(500).json({
         message: error.message || "Failed to update food item.",
@@ -516,12 +482,11 @@ router.put(
   }
 );
 
-// =====================================================
+// ==========================================
 // DELETE FOOD ITEM
 // Admin: any item
 // Staff: assigned court only
-// =====================================================
-
+// ==========================================
 router.delete("/:id", authMiddleware, async (req, res) => {
   try {
     const manager = await getFoodManager(req);
@@ -551,18 +516,15 @@ router.delete("/:id", authMiddleware, async (req, res) => {
       String(existingFoodItem.foodCourt || "") !== manager.foodCourtId
     ) {
       return res.status(403).json({
-        message: "You can only delete food items from your assigned Food Court.",
+        message:
+          "You can only delete food items from your assigned Food Court.",
       });
     }
 
-    const deletedFoodItem = await FoodItem.findByIdAndDelete(req.params.id);
+    await FoodItem.findByIdAndDelete(req.params.id);
 
-    if (
-      deletedFoodItem.imageUrl &&
-      deletedFoodItem.imageUrl.startsWith("/uploads/food/")
-    ) {
-      removeUploadedFile(path.basename(deletedFoodItem.imageUrl));
-    }
+    // Cloudinary asset ko automatically delete nahi kar rahe,
+    // taaki existing references galti se remove na hon.
 
     return res.status(200).json({
       message: "Food item deleted successfully.",
@@ -576,10 +538,9 @@ router.delete("/:id", authMiddleware, async (req, res) => {
   }
 });
 
-// =====================================================
+// ==========================================
 // MULTER ERROR HANDLER
-// =====================================================
-
+// ==========================================
 router.use((error, req, res, next) => {
   if (error instanceof multer.MulterError) {
     if (error.code === "LIMIT_FILE_SIZE") {
@@ -599,7 +560,7 @@ router.use((error, req, res, next) => {
     });
   }
 
-  next();
+  return next();
 });
 
 module.exports = router;
