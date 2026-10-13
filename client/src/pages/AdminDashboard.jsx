@@ -500,10 +500,19 @@ const AdminDashboard = () => {
         );
       }
 
+      // Food create/update routes require the logged-in admin token.
+      const config = getAuthConfig();
+
+      if (!config) {
+        setError("Please login again.");
+        return;
+      }
+
       if (editingFood) {
         await axios.put(
           `${API}/food/${editingFood._id}`,
-          formData
+          formData,
+          config
         );
 
         setMessage(
@@ -512,7 +521,8 @@ const AdminDashboard = () => {
       } else {
         await axios.post(
           `${API}/food`,
-          formData
+          formData,
+          config
         );
 
         setMessage(
@@ -592,8 +602,16 @@ const AdminDashboard = () => {
       setMessage("");
       setError("");
 
+      const config = getAuthConfig();
+
+      if (!config) {
+        setError("Please login again.");
+        return;
+      }
+
       await axios.delete(
-        `${API}/food/${id}`
+        `${API}/food/${id}`,
+        config
       );
 
       setMessage(
@@ -625,13 +643,21 @@ const AdminDashboard = () => {
       setMessage("");
       setError("");
 
+      const config = getAuthConfig();
+
+      if (!config) {
+        setError("Please login again.");
+        return;
+      }
+
       await axios.put(
         `${API}/food/${item._id}`,
         {
           ...item,
           isAvailable:
             !item.isAvailable,
-        }
+        },
+        config
       );
 
       setMessage(
