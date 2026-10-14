@@ -1,6 +1,8 @@
+
 const express = require('express');
 
 const FoodCourt = require('../models/FoodCourt');
+
 const {
     register,
     login,
@@ -10,7 +12,10 @@ const {
 const {
     sendRegistrationOTP,
     verifyRegistrationOTP,
-    resendRegistrationOTP
+    resendRegistrationOTP,
+    forgotPassword,
+    verifyResetOTP,
+    resetPassword
 } = require('../controllers/otpController');
 
 const {
@@ -28,12 +33,7 @@ const isAdmin = require('../middleware/isAdmin');
 // PUBLIC ROUTES
 // =====================================================
 
-
-/**
- * PUBLIC - GET ACTIVE FOOD COURTS
- * Students can view active food courts.
- * Existing admin-only routes remain unchanged.
- */
+// PUBLIC - GET ACTIVE FOOD COURTS
 router.get('/public/food-courts', async (req, res) => {
     try {
         const foodCourts = await FoodCourt.find({
@@ -54,15 +54,14 @@ router.get('/public/food-courts', async (req, res) => {
 });
 
 
-// Get user statistics
+// GET USER STATISTICS
 router.get('/stats', getUserStats);
 
 
 // =====================================================
-// OLD PUBLIC REGISTER ROUTE
+// STUDENT REGISTRATION
 // =====================================================
 
-// Student-only public registration
 router.post('/register', register);
 
 
@@ -70,14 +69,25 @@ router.post('/register', register);
 // STUDENT OTP REGISTRATION
 // =====================================================
 
-// Send OTP
 router.post('/send-otp', sendRegistrationOTP);
 
-// Verify OTP and create student account
 router.post('/verify-otp', verifyRegistrationOTP);
 
-// Resend OTP
 router.post('/resend-otp', resendRegistrationOTP);
+
+
+// =====================================================
+// FORGOT PASSWORD - NEW ROUTES
+// =====================================================
+
+// Step 1: Send password reset OTP to email
+router.post('/forgot-password', forgotPassword);
+
+// Step 2: Verify the OTP and receive a short-lived reset token
+router.post('/verify-reset-otp', verifyResetOTP);
+
+// Step 3: Save the new password using the reset token
+router.post('/reset-password', resetPassword);
 
 
 // =====================================================
@@ -96,7 +106,6 @@ router.get(
     authMiddleware,
     async (req, res) => {
         try {
-
             const user = await User
                 .findById(req.user.id)
                 .select('-password');
@@ -107,16 +116,11 @@ router.get(
                 });
             }
 
-            res.json(user);
-
+            return res.json(user);
         } catch (error) {
+            console.error('Profile error:', error);
 
-            console.error(
-                'Profile error:',
-                error
-            );
-
-            res.status(500).json({
+            return res.status(500).json({
                 message: 'Server error'
             });
         }
@@ -135,9 +139,11 @@ router.post(
     createStaff
 );
 
-// ==========================================
+
+// =====================================================
 // ADMIN - GET ACTIVE FOOD COURTS
-// ==========================================
+// =====================================================
+
 router.get(
     '/food-courts',
     authMiddleware,
@@ -148,10 +154,11 @@ router.get(
                 isActive: true
             }).sort({ name: 1 });
 
-            res.json(foodCourts);
+            return res.json(foodCourts);
         } catch (error) {
             console.error('Get Food Courts error:', error);
-            res.status(500).json({
+
+            return res.status(500).json({
                 message: 'Error fetching Food Courts'
             });
         }
@@ -159,9 +166,10 @@ router.get(
 );
 
 
-// ==========================================
+// =====================================================
 // ADMIN - CREATE FOOD COURT
-// ==========================================
+// =====================================================
+
 router.post(
     '/food-courts',
     authMiddleware,
@@ -184,9 +192,14 @@ router.post(
                 });
             }
 
+            const escapedName = name.replace(
+                /[.*+?^${}()|[\]\\]/g,
+                '\\$&'
+            );
+
             const existing = await FoodCourt.findOne({
                 name: {
-                    $regex: `^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+                    $regex: `^${escapedName}$`,
                     $options: 'i'
                 }
             });
@@ -223,9 +236,11 @@ router.post(
     }
 );
 
-// ==========================================
+
+// =====================================================
 // ADMIN - GET ALL STAFF
-// ==========================================
+// =====================================================
+
 router.get(
     '/staff',
     authMiddleware,
@@ -237,8 +252,6 @@ router.get(
             })
                 .select('_id name email department foodCourt')
                 .lean();
-
-            const FoodCourt = require('../models/FoodCourt');
 
             const foodCourtIds = staff
                 .map(member => member.foodCourt)
@@ -265,7 +278,6 @@ router.get(
             }));
 
             return res.json(staffWithFoodCourt);
-
         } catch (error) {
             console.error('Error fetching staff:', error);
 
@@ -275,9 +287,12 @@ router.get(
         }
     }
 );
-// ==========================================
+
+
+// =====================================================
 // ADMIN - DELETE STAFF ACCOUNT
-// ==========================================
+// =====================================================
+
 router.delete(
     '/staff/:id',
     authMiddleware,
@@ -285,8 +300,9 @@ router.delete(
     async (req, res) => {
         try {
             const { id } = req.params;
+            const mongoose = require('mongoose');
 
-            if (!require('mongoose').isValidObjectId(id)) {
+            if (!mongoose.isValidObjectId(id)) {
                 return res.status(400).json({
                     message: 'Invalid staff ID'
                 });
@@ -311,7 +327,6 @@ router.delete(
             return res.json({
                 message: 'Staff account deleted successfully'
             });
-
         } catch (error) {
             console.error('Delete staff error:', error);
 

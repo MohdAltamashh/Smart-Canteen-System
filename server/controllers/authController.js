@@ -1,154 +1,231 @@
-// filepath: smart-canteen-system/server/controllers/authController.js
 
-const User = require('../models/User');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+const User = require("../models/User");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
-// Register a new user
+// ==========================================
+// REGISTER A NEW USER
+// ==========================================
+
 const register = async (req, res) => {
-    const { email, password, role, name, department } = req.body;
+  const { email, password, role, name, department } = req.body;
 
-    try {
-        // Validate required fields
-        if (!email || !password || !role || !name || !department) {
-            return res.status(400).json({
-                message: 'All fields are required: email, password, role, name, department'
-            });
-        }
-
-        // Validate email format
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            return res.status(400).json({ message: 'Please enter a valid email address' });
-        }
-
-        // Validate password length
-        if (password.length < 6) {
-            return res.status(400).json({ message: 'Password must be at least 6 characters long' });
-        }
-
-        // Validate role
-        // Only students can register publicly
-        if (role !== 'student') {
-            return res.status(403).json({
-                message: 'Public registration is only available for students'
-            });
-        }
-
-        // Check if user already exists
-        const existingUser = await User.findOne({ email });
-        if (existingUser) {
-            return res.status(400).json({ message: 'User with this email already exists' });
-        }
-
-        // Hash the password
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Create a new user
-        const newUser = new User({
-            email: email.trim(),
-            password: hashedPassword,
-            role,
-            name: name.trim(),
-            department: department.trim()
-        });
-
-        await newUser.save();
-        console.log('User registered successfully:', { email, role, name, department });
-        res.status(201).json({ message: 'User registered successfully' });
-    } catch (error) {
-        console.error('Registration error:', error);
-        if (error.code === 11000) {
-            return res.status(400).json({ message: 'User with this email already exists' });
-        }
-        res.status(500).json({ message: 'Server error during registration' });
+  try {
+    if (!email || !password || !role || !name || !department) {
+      return res.status(400).json({
+        message: "All fields are required: email, password, role, name, department",
+      });
     }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanName = name.trim();
+    const cleanDepartment = department.trim();
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(cleanEmail)) {
+      return res.status(400).json({
+        message: "Please enter a valid email address",
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        message: "Password must be at least 6 characters long",
+      });
+    }
+
+    // Only students can register publicly.
+    if (role !== "student") {
+      return res.status(403).json({
+        message: "Public registration is only available for students",
+      });
+    }
+
+    const existingUser = await User.findOne({
+      email: cleanEmail,
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        message: "User with this email already exists",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = new User({
+      email: cleanEmail,
+      password: hashedPassword,
+      role,
+      name: cleanName,
+      department: cleanDepartment,
+    });
+
+    await newUser.save();
+
+    return res.status(201).json({
+      message: "User registered successfully",
+    });
+  } catch (error) {
+    console.error("Registration error:", error.message);
+
+    if (error.code === 11000) {
+      return res.status(400).json({
+        message: "User with this email already exists",
+      });
+    }
+
+    return res.status(500).json({
+      message: "Server error during registration",
+    });
+  }
 };
 
-// Login a user
+// ==========================================
+// LOGIN A USER
+// ==========================================
+
 const login = async (req, res) => {
-    const { email, password, role } = req.body;
+  const { email, password, role } = req.body;
 
-    console.log("LOGIN EMAIL:", JSON.stringify(email));
-    console.log("ADMIN EMAIL:", JSON.stringify(process.env.ADMIN_EMAIL));
-    console.log("lOGIN PASSWORD LENGTH:", password.length);
-    console.log("ADMIN PASSWORD LOADED:", process.env.ADMIN_PASSWORD?.length);
+  try {
+    if (
+      typeof email !== "string" ||
+      typeof password !== "string" ||
+      !email.trim() ||
+      !password ||
+      !["student", "staff", "admin"].includes(role)
+    ) {
+      return res.status(400).json({
+        message: "Please provide valid login credentials and role",
+      });
+    }
 
+    const cleanEmail = email.trim().toLowerCase();
 
-    console.log("JWT SECRET EXISTS:", !!process.env.JWT_SECRET);
+    if (!process.env.JWT_SECRET) {
+      console.error("JWT_SECRET is missing.");
 
-    try {
-        if (role === 'admin') {
-            // Only allow the admin from .env
-            if (
-                email === process.env.ADMIN_EMAIL &&
-                password === process.env.ADMIN_PASSWORD
-            ) {
-                // You can generate a token for admin (no DB lookup needed)
-                const token = jwt.sign(
-                    { id: 'admin', email, role: 'admin', name: 'Admin' },
-                    process.env.JWT_SECRET,
-                    { expiresIn: '1h' }
-                );
-                return res.status(200).json({
-                    token,
-                    user: { id: 'admin', email, role: 'admin', name: 'Admin' }
-                });
-            } else {
-                return res.status(400).json({ message: 'Invalid admin credentials' });
-            }
-        }
+      return res.status(500).json({
+        message: "Server authentication configuration error.",
+      });
+    }
 
-        // For non-admin users, proceed as usual
-        const user = await User.findOne({ email, role });
-        if (!user) {
-            return res.status(400).json({ message: 'Email not found' });
-        }
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(400).json({ message: 'Incorrect password' });
-        }
-        const token = jwt.sign(
-            { id: user._id, email: user.email, role: user.role, name: user.name },
-            process.env.JWT_SECRET,
-            { expiresIn: '1h' }
-        );
-        res.status(200).json({ token, user: { id: user._id, email: user.email, role: user.role, name: user.name } });
-    } catch (error) {
-        console.error('LOGIN ERROR:', error);
-        res.status(500).json({
-            message: 'Server error',
-            error: error.message
+    // ADMIN LOGIN
+    if (role === "admin") {
+      const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+      const adminPassword = process.env.ADMIN_PASSWORD;
+
+      if (
+        !adminEmail ||
+        !adminPassword ||
+        cleanEmail !== adminEmail ||
+        password !== adminPassword
+      ) {
+        return res.status(400).json({
+          message: "Invalid admin credentials",
         });
+      }
+
+      const user = {
+        id: "admin",
+        email: adminEmail,
+        role: "admin",
+        name: "Admin",
+      };
+
+      const token = jwt.sign(user, process.env.JWT_SECRET, {
+        expiresIn: "48h",
+      });
+
+      return res.status(200).json({
+        token,
+        user,
+      });
     }
+
+    // STUDENT / STAFF LOGIN
+    const user = await User.findOne({
+      email: cleanEmail,
+      role,
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        message: "Email not found",
+      });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(400).json({
+        message: "Incorrect password",
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        id: user._id.toString(),
+        email: user.email,
+        role: user.role,
+        name: user.name,
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "48h",
+      }
+    );
+
+    return res.status(200).json({
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        name: user.name,
+      },
+    });
+  } catch (error) {
+    console.error("Login error:", error.message);
+
+    return res.status(500).json({
+      message: "Server error during login",
+    });
+  }
 };
 
-// Get user statistics (public)
+// ==========================================
+// GET USER STATISTICS
+// ==========================================
+
 const getUserStats = async (req, res) => {
-    try {
-        console.log('getUserStats called');
+  try {
+    const totalUsers = await User.countDocuments();
+    const studentCount = await User.countDocuments({
+      role: "student",
+    });
+    const staffCount = await User.countDocuments({
+      role: "staff",
+    });
 
-        const totalUsers = await User.countDocuments();
-        console.log('Total users:', totalUsers);
+    return res.json({
+      total: totalUsers,
+      students: studentCount,
+      staff: staffCount,
+    });
+  } catch (error) {
+    console.error("Error in getUserStats:", error.message);
 
-        const studentCount = await User.countDocuments({ role: 'student' });
-        console.log('Student count:', studentCount);
-
-        const staffCount = await User.countDocuments({ role: 'staff' });
-        console.log('Staff count:', staffCount);
-
-        const stats = {
-            total: totalUsers,
-            students: studentCount,
-            staff: staffCount
-        };
-
-        console.log('Returning user stats:', stats);
-        res.json(stats);
-    } catch (error) {
-        console.error('Error in getUserStats:', error);
-        res.status(500).json({ message: 'Server error' });
-    }
+    return res.status(500).json({
+      message: "Server error",
+    });
+  }
 };
 
-module.exports = { register, login, getUserStats };
+module.exports = {
+  register,
+  login,
+  getUserStats,
+};

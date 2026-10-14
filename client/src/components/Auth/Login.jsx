@@ -1,20 +1,40 @@
+
 import React, { useState } from "react";
+import axios from "axios";
 import auth from "../../api/auth";
 import { useHistory, useParams } from "react-router-dom";
+
+const API_URL =
+  process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
 const Login = ({ setIsLoggedIn, onLoginSuccess }) => {
   const history = useHistory();
   const { role: urlRole } = useParams();
 
+  // Existing login state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState(urlRole || "student");
-
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // LOGIN
+  // Forgot password state
+  const [forgotMode, setForgotMode] = useState(false);
+  const [resetStep, setResetStep] = useState(1);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetOtp, setResetOtp] = useState("");
+  const [resetToken, setResetToken] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [resetMessage, setResetMessage] = useState("");
+  const [resetError, setResetError] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+
+  // ==========================================
+  // EXISTING LOGIN
+  // ==========================================
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -28,11 +48,7 @@ const Login = ({ setIsLoggedIn, onLoginSuccess }) => {
         role,
       });
 
-      console.log("Login response:", response);
-
-      const token =
-        response?.token ||
-        response?.data?.token;
+      const token = response?.token || response?.data?.token;
 
       if (!token) {
         throw new Error(
@@ -50,12 +66,9 @@ const Login = ({ setIsLoggedIn, onLoginSuccess }) => {
 
       if (onLoginSuccess) {
         onLoginSuccess(
-          response?.data
-            ? response
-            : { data: response },
+          response?.data ? response : { data: response },
           history
         );
-
         return;
       }
 
@@ -79,7 +92,190 @@ const Login = ({ setIsLoggedIn, onLoginSuccess }) => {
     }
   };
 
- 
+  // ==========================================
+  // OPEN FORGOT PASSWORD
+  // ==========================================
+
+  const openForgotPassword = () => {
+    setResetEmail(email.trim());
+    setResetStep(1);
+    setResetOtp("");
+    setResetToken("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setResetError("");
+    setResetMessage("");
+    setError("");
+    setForgotMode(true);
+  };
+
+  // ==========================================
+  // BACK TO LOGIN
+  // ==========================================
+
+  const backToLogin = () => {
+    setForgotMode(false);
+    setResetStep(1);
+    setResetOtp("");
+    setResetToken("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setResetError("");
+    setResetMessage("");
+    setResetLoading(false);
+  };
+
+  // ==========================================
+  // STEP 1: SEND PASSWORD RESET OTP
+  // ==========================================
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+
+    setResetError("");
+    setResetMessage("");
+
+    const cleanEmail = resetEmail.trim().toLowerCase();
+
+    if (!cleanEmail) {
+      setResetError("Please enter your registered email.");
+      return;
+    }
+
+    setResetLoading(true);
+
+    try {
+      const response = await axios.post(
+        `${API_URL}/auth/forgot-password`,
+        { email: cleanEmail }
+      );
+
+      setResetEmail(cleanEmail);
+      setResetStep(2);
+
+      setResetMessage(
+        response.data?.message ||
+          "If an eligible account exists, an OTP will be sent."
+      );
+    } catch (err) {
+      setResetError(
+        err?.response?.data?.message ||
+          "Unable to request OTP. Please try again."
+      );
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  // ==========================================
+  // STEP 2: VERIFY OTP
+  // ==========================================
+
+  const handleVerifyResetOtp = async (e) => {
+    e.preventDefault();
+
+    setResetError("");
+    setResetMessage("");
+
+    if (!/^\d{6}$/.test(resetOtp)) {
+      setResetError("Please enter the valid 6-digit OTP.");
+      return;
+    }
+
+    setResetLoading(true);
+
+    try {
+      const response = await axios.post(
+        `${API_URL}/auth/verify-reset-otp`,
+        {
+          email: resetEmail.trim().toLowerCase(),
+          otp: resetOtp.trim(),
+        }
+      );
+
+      if (!response.data?.resetToken) {
+        throw new Error("Reset token was not received.");
+      }
+
+      setResetToken(response.data.resetToken);
+      setResetStep(3);
+      setResetMessage(
+        "OTP verified successfully. Set your new password."
+      );
+    } catch (err) {
+      setResetError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "OTP verification failed. Please try again."
+      );
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  // ==========================================
+  // STEP 3: RESET PASSWORD
+  // ==========================================
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+
+    setResetError("");
+    setResetMessage("");
+
+    if (newPassword.length < 6) {
+      setResetError(
+        "Password must be at least 6 characters long."
+      );
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setResetError("Passwords do not match.");
+      return;
+    }
+
+    if (!resetToken) {
+      setResetError(
+        "Reset session is missing. Please start again."
+      );
+      return;
+    }
+
+    setResetLoading(true);
+
+    try {
+      const response = await axios.post(
+        `${API_URL}/auth/reset-password`,
+        {
+          resetToken,
+          password: newPassword,
+        }
+      );
+
+      setResetMessage(
+        response.data?.message ||
+          "Password reset successfully. Please log in."
+      );
+
+      setPassword("");
+      setEmail(resetEmail.trim().toLowerCase());
+      setNewPassword("");
+      setConfirmPassword("");
+      setResetOtp("");
+      setResetToken("");
+      setResetStep(1);
+      setForgotMode(false);
+    } catch (err) {
+      setResetError(
+        err?.response?.data?.message ||
+          "Password reset failed. Please try again."
+      );
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   return (
     <div className="campus-login">
       <style>{`
@@ -88,7 +284,6 @@ const Login = ({ setIsLoggedIn, onLoginSuccess }) => {
           --cl-blue: #3984ff;
           --cl-orange: #ffad66;
           --cl-muted: #a4b1c5;
-
           min-height: 100vh;
           width: 100%;
           padding: 28px 20px;
@@ -102,20 +297,10 @@ const Login = ({ setIsLoggedIn, onLoginSuccess }) => {
           overflow-x: hidden;
           color: #f8fafc;
           background:
-            radial-gradient(
-              ellipse at 12% 15%,
-              rgba(38,99,235,.20),
-              transparent 38%
-            ),
-            radial-gradient(
-              ellipse at 90% 85%,
-              rgba(255,157,86,.09),
-              transparent 30%
-            ),
+            radial-gradient(ellipse at 12% 15%, rgba(38,99,235,.20), transparent 38%),
+            radial-gradient(ellipse at 90% 85%, rgba(255,157,86,.09), transparent 30%),
             var(--cl-bg);
-          font-family:
-            Inter, -apple-system, BlinkMacSystemFont,
-            "Segoe UI", sans-serif;
+          font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
 
         .campus-login *,
@@ -214,11 +399,7 @@ const Login = ({ setIsLoggedIn, onLoginSuccess }) => {
           flex-direction: column;
           justify-content: center;
           background:
-            radial-gradient(
-              circle at 5% 95%,
-              rgba(255,173,102,.10),
-              transparent 38%
-            ),
+            radial-gradient(circle at 5% 95%, rgba(255,173,102,.10), transparent 38%),
             linear-gradient(145deg,#172b49,#0c1729);
           border-right: 1px solid rgba(255,255,255,.10);
         }
@@ -453,6 +634,12 @@ const Login = ({ setIsLoggedIn, onLoginSuccess }) => {
           border: 1px solid rgba(251,113,133,.25);
         }
 
+        .cl-alert-success {
+          color: #a7f3d0;
+          background: rgba(16,185,129,.10);
+          border: 1px solid rgba(52,211,153,.25);
+        }
+
         .cl-button {
           width: 100%;
           min-height: 48px;
@@ -544,6 +731,21 @@ const Login = ({ setIsLoggedIn, onLoginSuccess }) => {
 
         .cl-security strong {
           color: #e5edf8;
+        }
+
+        .cl-text-button {
+          border: 0;
+          padding: 8px 0;
+          background: transparent;
+          color: #ffad66;
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: 750;
+        }
+
+        .cl-text-button:hover {
+          color: #ffd0a7;
+          text-decoration: underline;
         }
 
         .cl-footer {
@@ -643,7 +845,7 @@ const Login = ({ setIsLoggedIn, onLoginSuccess }) => {
       {/* MAIN */}
 
       <main className="cl-layout">
-        {/* INTRO */}
+        {/* INTRO PANEL */}
 
         <section className="cl-intro">
           <div className="cl-badge">
@@ -661,20 +863,18 @@ const Login = ({ setIsLoggedIn, onLoginSuccess }) => {
 
           <p className="cl-intro-description">
             Your campus food experience starts here.
-            Sign in to discover food courts, place
-            orders and pick up your favourites with
-            a smart digital token.
+            Sign in to discover food courts, place orders
+            and pick up your favourites with a smart
+            digital token.
           </p>
 
           <div className="cl-feature-list">
             <div className="cl-feature">
               <div className="cl-feature-icon">🍔</div>
-
               <div>
                 <div className="cl-feature-title">
                   Easy Food Ordering
                 </div>
-
                 <div className="cl-feature-text">
                   Explore menus and order your favourites.
                 </div>
@@ -683,12 +883,10 @@ const Login = ({ setIsLoggedIn, onLoginSuccess }) => {
 
             <div className="cl-feature">
               <div className="cl-feature-icon">🎟️</div>
-
               <div>
                 <div className="cl-feature-title">
                   Smart Digital Tokens
                 </div>
-
                 <div className="cl-feature-text">
                   Skip the queue and enjoy easy pickup.
                 </div>
@@ -697,12 +895,10 @@ const Login = ({ setIsLoggedIn, onLoginSuccess }) => {
 
             <div className="cl-feature">
               <div className="cl-feature-icon">🔔</div>
-
               <div>
                 <div className="cl-feature-title">
                   Live Order Updates
                 </div>
-
                 <div className="cl-feature-text">
                   Stay updated on your order status.
                 </div>
@@ -711,179 +907,439 @@ const Login = ({ setIsLoggedIn, onLoginSuccess }) => {
           </div>
         </section>
 
-        {/* LOGIN FORM */}
+        {/* FORM PANEL */}
 
         <section className="cl-form-panel">
           <h2 className="cl-form-title">
-            Welcome back.
+            {forgotMode ? "Reset Password." : "Welcome back."}
           </h2>
 
           <p className="cl-form-subtitle">
-            Sign in to continue your Campus Bite experience.
+            {forgotMode
+              ? "Recover access to your Campus Bite account."
+              : "Sign in to continue your Campus Bite experience."}
           </p>
 
-          {/* ROLE SELECTOR */}
+          {/* ROLE SELECTOR: PRESERVED */}
 
-          <div className="cl-role-tabs">
-            <button
-              type="button"
-              className={`cl-role-option ${
-                role === "student" ? "active" : ""
-              }`}
-              onClick={() => setRole("student")}
-              aria-pressed={role === "student"}
-            >
-              <span className="cl-role-icon">🎓</span>
-              Student
-            </button>
-
-            <button
-              type="button"
-              className={`cl-role-option ${
-                role === "staff" ? "active" : ""
-              }`}
-              onClick={() => setRole("staff")}
-              aria-pressed={role === "staff"}
-            >
-              <span className="cl-role-icon">👨‍🍳</span>
-              Staff
-            </button>
-
-            <button
-              type="button"
-              className={`cl-role-option ${
-                role === "admin" ? "active" : ""
-              }`}
-              onClick={() => setRole("admin")}
-              aria-pressed={role === "admin"}
-            >
-              <span className="cl-role-icon">🛡️</span>
-              Admin
-            </button>
-          </div>
-
-          {error && (
-            <div
-              className="cl-alert cl-alert-error"
-              role="alert"
-            >
-              ⚠️ {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit}>
-            {/* EMAIL */}
-
-            <div className="cl-field">
-              <label className="cl-label" htmlFor="cl-email">
-                EMAIL ADDRESS
-              </label>
-
-              <div className="cl-input-wrap">
-                <span className="cl-input-icon">✉</span>
-
-                <input
-                  id="cl-email"
-                  type="email"
-                  className="cl-input"
-                  placeholder="Enter your email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="email"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* PASSWORD */}
-
-            <div className="cl-field">
-              <label className="cl-label" htmlFor="cl-password">
-                PASSWORD
-              </label>
-
-              <div className="cl-input-wrap">
-                <span className="cl-input-icon">🔑</span>
-
-                <input
-                  id="cl-password"
-                  type={showPassword ? "text" : "password"}
-                  className="cl-input cl-password-input"
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="current-password"
-                  required
-                />
-
-                <button
-                  type="button"
-                  className="cl-eye"
-                  onClick={() =>
-                    setShowPassword((previous) => !previous)
-                  }
-                  aria-label={
-                    showPassword ? "Hide password" : "Show password"
-                  }
-                >
-                  {showPassword ? "🙈" : "👁️"}
-                </button>
-              </div>
-            </div>
-
-            {/* LOGIN BUTTON */}
-
-            <button
-              type="submit"
-              className="cl-button"
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <span className="cl-spinner" />
-                  Logging in...
-                </>
-              ) : (
-                "Login to Campus Bite  →"
-              )}
-            </button>
-          </form>
-
-          {/* REGISTER */}
-
-          {role === "student" && (
-            <div className="cl-register">
-              <div className="cl-register-text">
-                New to Campus Bite?
-              </div>
+          {!forgotMode && (
+            <div className="cl-role-tabs">
+              <button
+                type="button"
+                className={`cl-role-option ${
+                  role === "student" ? "active" : ""
+                }`}
+                onClick={() => setRole("student")}
+                aria-pressed={role === "student"}
+              >
+                <span className="cl-role-icon">🎓</span>
+                Student
+              </button>
 
               <button
                 type="button"
-                className="cl-register-button"
-                onClick={() => history.push("/register/student")}
+                className={`cl-role-option ${
+                  role === "staff" ? "active" : ""
+                }`}
+                onClick={() => setRole("staff")}
+                aria-pressed={role === "staff"}
               >
-                Create Student Account  ↗
+                <span className="cl-role-icon">👨‍🍳</span>
+                Staff
+              </button>
+
+              <button
+                type="button"
+                className={`cl-role-option ${
+                  role === "admin" ? "active" : ""
+                }`}
+                onClick={() => setRole("admin")}
+                aria-pressed={role === "admin"}
+              >
+                <span className="cl-role-icon">🛡️</span>
+                Admin
               </button>
             </div>
           )}
 
-          {/* SECURITY */}
+          {/* RESET MESSAGES */}
 
-          <div className="cl-security">
-            <span>🔒</span>
+          {resetMessage && (
+            <div
+              className="cl-alert cl-alert-success"
+              role="status"
+            >
+              {resetMessage}
+            </div>
+          )}
 
-            <span>
-              <strong>Secure sign in</strong>
-              <br />
-              Your login is handled by the Campus Bite
-              authentication system.
-            </span>
-          </div>
+          {resetError && (
+            <div
+              className="cl-alert cl-alert-error"
+              role="alert"
+            >
+              ⚠️ {resetError}
+            </div>
+          )}
+
+          {/* ======================================
+              FORGOT PASSWORD FLOW
+          ====================================== */}
+
+          {forgotMode ? (
+            <>
+              <p
+                className="cl-form-subtitle"
+                style={{ marginTop: 16, marginBottom: 20 }}
+              >
+                {resetStep === 1 &&
+                  "Step 1 of 3 — Enter your registered email."}
+
+                {resetStep === 2 &&
+                  "Step 2 of 3 — Enter the 6-digit OTP sent to your email."}
+
+                {resetStep === 3 &&
+                  "Step 3 of 3 — Create your new password."}
+              </p>
+
+              {/* STEP 1: EMAIL */}
+
+              {resetStep === 1 && (
+                <form onSubmit={handleForgotPassword}>
+                  <div className="cl-field">
+                    <label
+                      className="cl-label"
+                      htmlFor="reset-email"
+                    >
+                      REGISTERED EMAIL
+                    </label>
+
+                    <div className="cl-input-wrap">
+                      <span className="cl-input-icon">✉</span>
+
+                      <input
+                        id="reset-email"
+                        type="email"
+                        className="cl-input"
+                        placeholder="Enter your registered email"
+                        value={resetEmail}
+                        onChange={(e) =>
+                          setResetEmail(e.target.value)
+                        }
+                        autoComplete="email"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="cl-button"
+                    disabled={resetLoading}
+                  >
+                    {resetLoading ? (
+                      <>
+                        <span className="cl-spinner" />
+                        Sending OTP...
+                      </>
+                    ) : (
+                      "Send OTP →"
+                    )}
+                  </button>
+                </form>
+              )}
+
+              {/* STEP 2: VERIFY OTP */}
+
+              {resetStep === 2 && (
+                <form onSubmit={handleVerifyResetOtp}>
+                  <div className="cl-field">
+                    <label
+                      className="cl-label"
+                      htmlFor="reset-otp"
+                    >
+                      6-DIGIT OTP
+                    </label>
+
+                    <input
+                      id="reset-otp"
+                      type="text"
+                      className="cl-input"
+                      style={{ paddingLeft: 14 }}
+                      placeholder="Enter OTP"
+                      value={resetOtp}
+                      onChange={(e) =>
+                        setResetOtp(
+                          e.target.value
+                            .replace(/\D/g, "")
+                            .slice(0, 6)
+                        )
+                      }
+                      inputMode="numeric"
+                      pattern="[0-9]{6}"
+                      maxLength={6}
+                      autoComplete="one-time-code"
+                      required
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="cl-button"
+                    disabled={resetLoading}
+                  >
+                    {resetLoading ? (
+                      <>
+                        <span className="cl-spinner" />
+                        Verifying OTP...
+                      </>
+                    ) : (
+                      "Verify OTP →"
+                    )}
+                  </button>
+
+                  <div style={{ marginTop: 12 }}>
+                    <button
+                      type="button"
+                      className="cl-text-button"
+                      onClick={() => {
+                        setResetStep(1);
+                        setResetOtp("");
+                        setResetToken("");
+                        setResetError("");
+                        setResetMessage("");
+                      }}
+                    >
+                      Change email
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* STEP 3: NEW PASSWORD */}
+
+              {resetStep === 3 && (
+                <form onSubmit={handleResetPassword}>
+                  <div className="cl-field">
+                    <label
+                      className="cl-label"
+                      htmlFor="new-password"
+                    >
+                      NEW PASSWORD
+                    </label>
+
+                    <input
+                      id="new-password"
+                      type="password"
+                      className="cl-input"
+                      style={{ paddingLeft: 14 }}
+                      placeholder="At least 6 characters"
+                      value={newPassword}
+                      onChange={(e) =>
+                        setNewPassword(e.target.value)
+                      }
+                      autoComplete="new-password"
+                      minLength={6}
+                      required
+                    />
+                  </div>
+
+                  <div className="cl-field">
+                    <label
+                      className="cl-label"
+                      htmlFor="confirm-password"
+                    >
+                      CONFIRM NEW PASSWORD
+                    </label>
+
+                    <input
+                      id="confirm-password"
+                      type="password"
+                      className="cl-input"
+                      style={{ paddingLeft: 14 }}
+                      placeholder="Enter password again"
+                      value={confirmPassword}
+                      onChange={(e) =>
+                        setConfirmPassword(e.target.value)
+                      }
+                      autoComplete="new-password"
+                      minLength={6}
+                      required
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="cl-button"
+                    disabled={resetLoading}
+                  >
+                    {resetLoading ? (
+                      <>
+                        <span className="cl-spinner" />
+                        Updating Password...
+                      </>
+                    ) : (
+                      "Reset Password →"
+                    )}
+                  </button>
+                </form>
+              )}
+
+              <button
+                type="button"
+                className="cl-register-button"
+                style={{ marginTop: 16 }}
+                onClick={backToLogin}
+              >
+                ← Back to Login
+              </button>
+            </>
+          ) : (
+            <>
+              {/* EXISTING LOGIN ERROR */}
+
+              {error && (
+                <div
+                  className="cl-alert cl-alert-error"
+                  role="alert"
+                >
+                  ⚠️ {error}
+                </div>
+              )}
+
+              {/* EXISTING LOGIN FORM */}
+
+              <form onSubmit={handleSubmit}>
+                <div className="cl-field">
+                  <label
+                    className="cl-label"
+                    htmlFor="cl-email"
+                  >
+                    EMAIL ADDRESS
+                  </label>
+
+                  <div className="cl-input-wrap">
+                    <span className="cl-input-icon">✉</span>
+
+                    <input
+                      id="cl-email"
+                      type="email"
+                      className="cl-input"
+                      placeholder="Enter your email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      autoComplete="email"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="cl-field">
+                  <label
+                    className="cl-label"
+                    htmlFor="cl-password"
+                  >
+                    PASSWORD
+                  </label>
+
+                  <div className="cl-input-wrap">
+                    <span className="cl-input-icon">🔑</span>
+
+                    <input
+                      id="cl-password"
+                      type={showPassword ? "text" : "password"}
+                      className="cl-input cl-password-input"
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) =>
+                        setPassword(e.target.value)
+                      }
+                      autoComplete="current-password"
+                      required
+                    />
+
+                    <button
+                      type="button"
+                      className="cl-eye"
+                      onClick={() =>
+                        setShowPassword((previous) => !previous)
+                      }
+                      aria-label={
+                        showPassword
+                          ? "Hide password"
+                          : "Show password"
+                      }
+                    >
+                      {showPassword ? "🙈" : "👁️"}
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ textAlign: "right", marginTop: -5, marginBottom: 16 }}>
+                  <button
+                    type="button"
+                    className="cl-text-button"
+                    onClick={openForgotPassword}
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
+
+                <button
+                  type="submit"
+                  className="cl-button"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <span className="cl-spinner" />
+                      Logging in...
+                    </>
+                  ) : (
+                    "Login to Campus Bite →"
+                  )}
+                </button>
+              </form>
+
+              {/* EXISTING STUDENT REGISTRATION */}
+
+              {role === "student" && (
+                <div className="cl-register">
+                  <div className="cl-register-text">
+                    New to Campus Bite?
+                  </div>
+
+                  <button
+                    type="button"
+                    className="cl-register-button"
+                    onClick={() =>
+                      history.push("/register/student")
+                    }
+                  >
+                    Create Student Account ↗️
+                  </button>
+                </div>
+              )}
+
+              {/* EXISTING SECURITY MESSAGE */}
+
+              <div className="cl-security">
+                <span>🔒</span>
+
+                <span>
+                  <strong>Secure sign in</strong>
+                  <br />
+                  Your login is handled by the Campus Bite
+                  authentication system.
+                </span>
+              </div>
+            </>
+          )}
         </section>
       </main>
 
       <footer className="cl-footer">
-        © {new Date().getFullYear()} Campus Bite
+        ©️ {new Date().getFullYear()} Campus Bite
         <br />
         SMART PRE-ORDER · EASY PICKUP
       </footer>
