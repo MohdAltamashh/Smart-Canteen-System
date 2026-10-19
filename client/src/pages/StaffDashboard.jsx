@@ -1,12 +1,47 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+// staffDashboard.jsx 
+
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useHistory } from "react-router-dom";
-
-
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
 const SERVER_URL = API_URL.replace(/\/api\/?$/, "");
+
+// Clear, gentle two-part chime for a newly received order.
+// Audio failures never interrupt the staff order dashboard.
+const playNewOrderSound = () => {
+  let context;
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    context = new AudioContextClass();
+    if (context.state === "suspended") context.resume().catch(() => {});
+    const startAt = context.currentTime;
+
+    const playTone = (frequency, when, duration, volume = 0.11) => {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(frequency, when);
+      gain.gain.setValueAtTime(0.0001, when);
+      gain.gain.exponentialRampToValueAtTime(volume, when + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, when + duration);
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.start(when);
+      oscillator.stop(when + duration + 0.03);
+    };
+
+    // A recognizable but softer notification: two rising notes.
+    playTone(659.25, startAt, 0.24);
+    playTone(987.77, startAt + 0.17, 0.34, 0.095);
+    window.setTimeout(() => context?.close().catch(() => {}), 750);
+  } catch (error) {
+    context?.close?.().catch(() => {});
+    console.debug("New-order sound unavailable:", error?.message || error);
+  }
+};
 
 const STATUSES = ["Pending", "Preparing", "Ready", "Completed", "Cancelled"];
 
@@ -41,8 +76,6 @@ const studentEmail = (o) => o.studentEmail || o.user?.email || "No email";
 const dateText = (d) => d ? new Date(d).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "N/A";
 
 const imageUrl = (url) => !url ? "" : /^https?:\/\//i.test(url) ? url : `${SERVER_URL}${url.startsWith("/") ? "" : "/"}${url}`;
-
-
 
 export default function StaffDashboard() {
 
@@ -91,8 +124,8 @@ export default function StaffDashboard() {
   const [nextStatus, setNextStatus] = useState("");
 
   const [updatingId, setUpdatingId] = useState("");
-
-
+  // The first response establishes a baseline, so old orders don't trigger sounds.
+  const knownOrderIdsRef = useRef(null);
 
   const headers = useCallback(() => {
 
@@ -101,8 +134,6 @@ export default function StaffDashboard() {
     return t ? { Authorization: `Bearer ${t}` } : {};
 
   }, []);
-
-
 
   const fetchOrders = useCallback(async (silent = false) => {
 
@@ -122,6 +153,16 @@ export default function StaffDashboard() {
 
       if (!Array.isArray(data)) { setError("Orders response ka format invalid hai."); return; }
 
+      const incomingIds = new Set(data.map((order) => String(order._id || order.orderId || "")).filter(Boolean));
+      if (knownOrderIdsRef.current === null) {
+        // Don't alert for orders already present when staff opens the dashboard.
+        knownOrderIdsRef.current = incomingIds;
+      } else {
+        const hasNewOrder = [...incomingIds].some((id) => !knownOrderIdsRef.current.has(id));
+        if (hasNewOrder) playNewOrderSound();
+        knownOrderIdsRef.current = incomingIds;
+      }
+
       setOrders(data);
 
     } catch (e) {
@@ -138,8 +179,6 @@ export default function StaffDashboard() {
 
   }, [headers]);
 
-
-
   const fetchStaffFoods = useCallback(async (silent = false) => {
 
     try {
@@ -150,8 +189,6 @@ export default function StaffDashboard() {
 
       if (!token()) { setFoodError("Session nahi mila. Dobara login karein."); return; }
 
-
-
       const profileRes = await fetch(`${API_URL}/auth/profile`, { headers: headers() });
 
       const profileData = await profileRes.json();
@@ -161,8 +198,6 @@ export default function StaffDashboard() {
       const profile = profileData.user || profileData;
 
       setStaff(profile);
-
-
 
       const assignedId = typeof profile.foodCourt === "object" ? profile.foodCourt?._id : profile.foodCourt;
 
@@ -177,8 +212,6 @@ export default function StaffDashboard() {
       }
 
       setCourtId(String(assignedId));
-
-
 
       let name = typeof profile.foodCourt === "object" ? profile.foodCourt?.name : "";
 
@@ -197,8 +230,6 @@ export default function StaffDashboard() {
       }
 
       setCourtName(name || "Assigned Food Court");
-
-
 
       const foodRes = await fetch(`${API_URL}/food?foodCourt=${encodeURIComponent(assignedId)}`, { headers: headers() });
 
@@ -222,8 +253,6 @@ export default function StaffDashboard() {
 
   }, [headers]);
 
-
-
   useEffect(() => {
 
     fetchOrders();
@@ -235,8 +264,6 @@ export default function StaffDashboard() {
     return () => clearInterval(timer);
 
   }, [fetchOrders, fetchStaffFoods]);
-
-
 
   const liveQueue = useMemo(() => orders.filter(o => ["Pending", "Preparing"].includes(o.status)).sort((a,b) => Number(a.tokenNumber || 0) - Number(b.tokenNumber || 0)), [orders]);
 
@@ -274,8 +301,6 @@ export default function StaffDashboard() {
 
   const visibleFoods = foods.filter(f => `${f.name || ""} ${f.category || ""}`.toLowerCase().includes(foodSearch.toLowerCase().trim()));
 
-
-
   const updateStatus = async (orderId, status) => {
 
     try {
@@ -312,8 +337,6 @@ export default function StaffDashboard() {
 
   };
 
-
-
   const resetForm = () => { setForm(EMPTY_FORM); setEditingId(""); };
 
   const onFormChange = (e) => {
@@ -325,8 +348,6 @@ export default function StaffDashboard() {
     setForm(p => ({ ...p, [name]: type === "checkbox" ? checked : value }));
 
   };
-
-
 
   const saveFood = async (e) => {
 
@@ -384,8 +405,6 @@ export default function StaffDashboard() {
 
   };
 
-
-
   const editFood = (food) => {
 
     setEditingId(food._id);
@@ -403,8 +422,6 @@ export default function StaffDashboard() {
     window.scrollTo({ top: 0, behavior: "smooth" });
 
   };
-
-
 
   const deleteFood = async (food) => {
 
@@ -434,8 +451,6 @@ export default function StaffDashboard() {
 
   };
 
-
-
   const toggleAvailability = async (food) => {
 
     try {
@@ -460,11 +475,7 @@ export default function StaffDashboard() {
 
   };
 
-
-
   const statusBadge = (status) => <span className={`badge ${STATUS[status]?.[1] || "bg-secondary"}`}>{STATUS[status]?.[0] || "📦"} {status}</span>;
-
-
 
   return (
 
@@ -693,8 +704,6 @@ export default function StaffDashboard() {
 
       </header>
 
-
-
       <main className="container py-4">
 
         {notice && <div className="alert alert-success border-0 shadow-sm">✅ {notice}</div>}
@@ -708,10 +717,6 @@ export default function StaffDashboard() {
           <button type="button" className={`btn ${tab==="foods"?"btn-primary":"btn-outline-primary"} px-4 py-2 fw-semibold`} onClick={() => setTab("foods")}>🍔 Food Management</button>
 
         </div>
-
-
-
-
 
         {tab === "queue" && <>
           <div className="card cb-panel border-0 shadow-sm mb-4" style={{borderRadius:18,overflow:"hidden"}}>
@@ -758,15 +763,11 @@ export default function StaffDashboard() {
             <div className="col-12"><div className="cb-stat d-flex align-items-center justify-content-between px-3"><span className="cb-stat-label">💰 Non-cancelled order value</span><strong style={{fontSize:20,color:"#71d7a1"}}>₹{sales.toFixed(2)}</strong></div></div>
           </div>
 
-
-
           <div className="card cb-panel border-0 shadow-sm mb-4" style={{borderRadius:16}}><div className="card-body"><div className="cb-section-switch">
 
             {[["active","🔥 Active",activeOrders.length],["completed","✅ Completed",completedOrders.length],["cancelled","❌ Cancelled",cancelledOrders.length]].map(([key,label,count])=><div key={key}><button className={`btn w-100 py-3 fw-semibold ${section===key?"btn-primary":"btn-outline-primary"}`} type="button" onClick={()=>{setSection(key);setSearch("");setStatusFilter("All");}}>{label} <span className="badge bg-light text-dark">{count}</span></button></div>)}
 
           </div></div></div>
-
-
 
           <div className="card cb-panel border-0 shadow-sm mb-4" style={{borderRadius:16}}><div className="card-body"><div className="row g-3">
 
@@ -775,8 +776,6 @@ export default function StaffDashboard() {
             <div className="col-12 col-md-4"><select className="form-select" value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}><option value="All">All Statuses</option>{STATUSES.map(s=><option key={s} value={s}>{STATUS[s][0]} {s}</option>)}</select></div>
 
           </div></div></div>
-
-
 
           {error && <div className="alert alert-danger">{error}</div>}
 
@@ -808,8 +807,6 @@ export default function StaffDashboard() {
 
         </>}
 
-
-
         {tab === "foods" && <>
 
           {foodError && <div className="alert alert-danger">{foodError}</div>}
@@ -838,8 +835,6 @@ export default function StaffDashboard() {
 
             </div></div></div>
 
-
-
             <div className="col-12 col-lg-7"><div className="card cb-panel border-0 shadow-sm" style={{borderRadius:18,overflow:"hidden"}}><div className="card-header bg-white border-0 p-4"><div className="d-flex justify-content-between align-items-center flex-wrap gap-2"><div><h4 className="fw-bold mb-1">🍽️ Your Menu</h4><p className="text-muted small mb-0">{courtName||"Assigned Food Court"} · {foods.length} items</p></div><button className="btn btn-outline-primary btn-sm" type="button" onClick={()=>fetchStaffFoods()}>🔄 Refresh Menu</button></div><input className="form-control mt-3" placeholder="Search food name/category..." value={foodSearch} onChange={e=>setFoodSearch(e.target.value)}/></div>
 
               {loadingFoods?<div className="text-center py-5"><div className="spinner-border text-primary"/><p className="text-muted mt-3">Loading menu...</p></div>:!visibleFoods.length?<div className="text-center text-muted py-5 px-3"><div style={{fontSize:42}}>🍽️</div><h5 className="fw-bold mt-2">No food items found</h5><p className="mb-0">Form se apne Food Court mein food item add karein.</p></div>:
@@ -863,8 +858,6 @@ export default function StaffDashboard() {
         </>}
 
       </main>
-
-
 
       {selectedOrder && <div className="modal d-block" tabIndex="-1" role="dialog" style={{background:"rgba(0,0,0,.6)"}} onClick={e=>{if(e.target===e.currentTarget){setSelectedOrder(null);setNextStatus("");}}}>
 

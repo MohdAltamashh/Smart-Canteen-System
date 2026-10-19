@@ -1,6 +1,42 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
+let audioContext;
+
+export function playCampusBiteChime(type = "order") {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    audioContext = audioContext || new AudioContextClass();
+    if (audioContext.state === "suspended") {
+      audioContext.resume().catch(() => {});
+    }
+    const ctx = audioContext;
+    const start = ctx.currentTime + 0.025;
+    // Short, bright rising 4-note signature, followed by a soft resolving note.
+    const notes = type === "staff"
+      ? [{ f: 659.25, t: 0, d: 0.13 }, { f: 783.99, t: 0.105, d: 0.15 }, { f: 987.77, t: 0.22, d: 0.21 }]
+      : type === "status"
+        ? [{ f: 659.25, t: 0, d: 0.12 }, { f: 880.00, t: 0.105, d: 0.19 }]
+        : [{ f: 587.33, t: 0, d: 0.13 }, { f: 739.99, t: 0.105, d: 0.13 }, { f: 880.00, t: 0.21, d: 0.14 }, { f: 1174.66, t: 0.33, d: 0.25 }];
+    notes.forEach(({ f, t, d }) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(f, start + t);
+      gain.gain.setValueAtTime(0.0001, start + t);
+      gain.gain.exponentialRampToValueAtTime(0.13, start + t + 0.018);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + t + d);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(start + t); osc.stop(start + t + d + 0.015);
+    });
+  } catch (error) {
+    // Sound is non-critical; never interrupt ordering or dashboard workflows.
+    console.debug("Campus Bite chime unavailable:", error);
+  }
+}
+
+
 const API_URL =
   process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
@@ -352,6 +388,7 @@ const Cart = () => {
       }
 
       setOrderSuccess(data.order);
+      playCampusBiteChime("order");
       setError("");
 
       // Clear only after backend confirms order.
