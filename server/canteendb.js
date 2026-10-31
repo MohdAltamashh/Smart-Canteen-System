@@ -1,3 +1,4 @@
+
 const mongoose = require("mongoose");
 require("dotenv").config();
 
@@ -5,6 +6,8 @@ const canteenDB = mongoose.createConnection(
   process.env.MONGO_URI,
   {
     dbName: "SmartCanteenDB",
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
   }
 );
 
