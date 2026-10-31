@@ -174,39 +174,24 @@ app.use((req, res, next) => {
 
 });
 
-
 // =====================================================
 // OLD COMPLAINT SYSTEM DATABASE
 // =====================================================
 
 mongoose
-  .connect(
-    process.env.MONGO_URI,
-    {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    }
-  )
+  .connect(process.env.MONGO_URI)
   .then(() => {
 
-    console.log(
-      "======================================"
-    );
-
-    console.log(
-      "Old Complaint System MongoDB Connected"
-    );
-
-    console.log(
-      "======================================"
-    );
+    console.log("======================================");
+    console.log("Old Complaint System MongoDB Connected");
+    console.log("======================================");
 
   })
   .catch((error) => {
 
     console.error(
       "Old MongoDB connection error:",
-      error
+      error.message
     );
 
   });
