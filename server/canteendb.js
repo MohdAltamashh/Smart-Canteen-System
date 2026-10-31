@@ -1,6 +1,7 @@
-
 const mongoose = require("mongoose");
 require("dotenv").config();
+
+mongoose.set("useCreateIndex", true);
 
 const canteenDB = mongoose.createConnection(
   process.env.MONGO_URI,
@@ -12,10 +13,8 @@ const canteenDB = mongoose.createConnection(
 );
 
 canteenDB.on("connected", () => {
-  console.log("======================================");
   console.log("Smart Canteen MongoDB Connected");
   console.log("Database: SmartCanteenDB");
-  console.log("======================================");
 });
 
 canteenDB.on("error", (error) => {
